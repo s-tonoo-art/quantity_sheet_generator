@@ -1,0 +1,1107 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>樹抽出 数量表ジェネレータ v0.1</title>
+<!-- ローカル処理のみ。CSV/xlsx は外部送信されません。 -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg:#0f1419; --panel:#1a212b; --panel2:#232c39; --border:#2c3645;
+    --fg:#e6edf3; --muted:#8b98a8; --accent:#4fb3ff; --ok:#3fb950; --warn:#d29922;
+    --err:#f85149; --new:#4fb3ff; --rem:#f5a85a;
+    --mono:'Consolas','Yu Gothic UI','Meiryo',monospace;
+    --sans:'Yu Gothic UI','Meiryo','Segoe UI',sans-serif;
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:var(--sans); font-size:14px; }
+  body { padding:20px; max-width:1200px; margin:0 auto; }
+  h1 { margin:0 0 4px 0; font-size:20px; letter-spacing:.02em; }
+  h1 small { font-weight:400; color:var(--muted); font-size:12px; margin-left:8px; }
+  p.lead { color:var(--muted); margin:0 0 18px 0; font-size:13px; }
+  .bulkdz {
+    background:var(--panel); border:2px dashed var(--border); border-radius:10px;
+    padding:22px 20px; margin-bottom:12px; text-align:center;
+    transition:all .15s; cursor:default;
+  }
+  .bulkdz.hover { border-color:var(--accent); background:var(--panel2); transform:scale(1.005); }
+  .bulkdz-main { font-size:16px; letter-spacing:.04em; }
+  .bulkdz-main .bulkdz-ico { color:var(--accent); margin-right:8px; font-weight:700; }
+  .bulkdz-sub { color:var(--muted); font-size:11px; margin-top:6px; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .dz {
+    background:var(--panel); border:1.5px dashed var(--border); border-radius:10px;
+    padding:16px 14px; min-height:110px; display:flex; flex-direction:column; gap:6px;
+    transition:all .15s;
+  }
+  .dz.hover { border-color:var(--accent); background:var(--panel2); }
+  .dz.ok { border-color:var(--ok); border-style:solid; }
+  .dz.dict { grid-column:span 1; }
+  .dz h3 { margin:0; font-size:13px; letter-spacing:.05em; color:var(--muted); font-weight:500; }
+  .dz .name { font-family:var(--mono); font-size:12px; color:var(--fg); word-break:break-all; }
+  .dz .hint { font-size:11px; color:var(--muted); }
+  .dz input[type=file] { display:none; }
+  .dz label.pick {
+    font-size:11px; color:var(--accent); cursor:pointer; align-self:flex-start;
+    padding:2px 6px; border:1px solid var(--border); border-radius:4px;
+  }
+  .dz label.pick:hover { background:var(--panel2); }
+  .dz .clr { font-size:11px; color:var(--muted); cursor:pointer; align-self:flex-end; }
+  .opts { margin:18px 0 12px 0; display:flex; gap:18px; align-items:center; flex-wrap:wrap;
+          padding:10px 14px; background:var(--panel); border-radius:8px; border:1px solid var(--border); }
+  .opts label { display:inline-flex; gap:6px; align-items:center; font-size:13px; cursor:pointer; }
+  .opts input[type=checkbox] { accent-color:var(--accent); }
+  .opts select {
+    background:var(--panel2); color:var(--fg); border:1px solid var(--border);
+    padding:4px 8px; border-radius:4px; font-size:13px; cursor:pointer;
+  }
+  button.run {
+    background:var(--accent); color:#0c1218; border:0; padding:10px 28px;
+    font-size:14px; font-weight:600; border-radius:6px; cursor:pointer;
+    letter-spacing:.04em;
+  }
+  button.run:disabled { background:var(--border); color:var(--muted); cursor:not-allowed; }
+  button.ghost {
+    background:transparent; color:var(--fg); border:1px solid var(--border);
+    padding:8px 14px; border-radius:6px; font-size:13px; cursor:pointer;
+  }
+  button.ghost:hover { background:var(--panel2); }
+  .log {
+    background:#0a0e13; border:1px solid var(--border); border-radius:6px;
+    font-family:var(--mono); font-size:12px; padding:10px 14px;
+    max-height:260px; overflow-y:auto; white-space:pre-wrap; color:#c9d1d9;
+    margin-top:12px;
+  }
+  .log .l-ok { color:var(--ok); }
+  .log .l-warn { color:var(--warn); }
+  .log .l-err { color:var(--err); }
+  .log .l-hr { color:var(--border); }
+  table.summary {
+    width:100%; border-collapse:collapse; margin-top:16px; font-size:12px;
+    background:var(--panel); border:1px solid var(--border); border-radius:6px; overflow:hidden;
+  }
+  table.summary th, table.summary td { padding:6px 10px; text-align:left; border-bottom:1px solid var(--border); }
+  table.summary th { background:var(--panel2); color:var(--muted); font-weight:500; }
+  table.summary tr.new td:first-child { border-left:3px solid var(--new); }
+  table.summary tr.rem td:first-child { border-left:3px solid var(--rem); }
+  table.summary tr.unresolved td { background:rgba(210,153,34,.08); }
+  .tabs { display:flex; gap:0; margin-top:20px; border-bottom:1px solid var(--border); }
+  .tabs button {
+    background:transparent; border:0; color:var(--muted); padding:8px 16px;
+    cursor:pointer; font-size:13px; border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .tabs button.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-body { padding:8px 0; display:none; }
+  .tab-body.active { display:block; }
+  .subtabs {
+    display:flex; gap:6px; margin:10px 0 8px 0; padding:4px; background:var(--panel);
+    border-radius:6px; border:1px solid var(--border); align-items:center;
+  }
+  .subtabs button {
+    background:transparent; color:var(--muted); border:0; padding:6px 14px;
+    cursor:pointer; font-size:12px; border-radius:4px; transition:all .15s;
+    display:inline-flex; gap:6px; align-items:center;
+  }
+  .subtabs button:hover { color:var(--fg); }
+  .subtabs button.active { background:var(--accent); color:#0c1218; font-weight:600; }
+  .subtabs .badge {
+    background:rgba(0,0,0,.2); padding:1px 6px; border-radius:8px; font-size:11px;
+    font-family:var(--mono);
+  }
+  .subtabs button.active .badge { background:rgba(0,0,0,.25); }
+  .subtabs .subnote { margin-left:auto; color:var(--muted); font-size:11px; padding-right:8px; }
+  .sub-body { display:none; }
+  .sub-body.active { display:block; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px;
+          font-family:var(--mono); background:var(--panel2); color:var(--muted); margin-right:6px; }
+  .pill.new { background:rgba(79,179,255,.15); color:var(--new); }
+  .pill.rem { background:rgba(245,168,90,.15); color:var(--rem); }
+  .downloads { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+  .downloads a {
+    background:var(--panel); color:var(--fg); border:1px solid var(--border);
+    padding:8px 12px; border-radius:6px; font-size:13px; text-decoration:none; font-family:var(--mono);
+  }
+  .downloads a:hover { border-color:var(--accent); color:var(--accent); }
+  details { background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:8px 12px; margin-top:10px; }
+  details summary { cursor:pointer; color:var(--muted); font-size:12px; }
+  details summary:hover { color:var(--fg); }
+  details pre { margin:8px 0 0 0; font-size:11px; color:var(--muted); }
+  .footer { margin-top:20px; padding-top:12px; border-top:1px solid var(--border);
+            color:var(--muted); font-size:11px; display:flex; justify-content:space-between; }
+
+  /* --- タグライン & ヘルプボタン --- */
+  p.tagline {
+    margin:0 0 10px 0; font-size:12px; color:var(--accent);
+    letter-spacing:.05em; font-style:italic; opacity:.85;
+  }
+  .help-btn {
+    position:fixed; top:16px; right:20px; z-index:50;
+    width:34px; height:34px; border-radius:50%;
+    background:var(--panel); color:var(--accent);
+    border:1px solid var(--border); font-size:17px; font-weight:700;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-family:var(--sans); line-height:1; transition:all .15s;
+    box-shadow:0 2px 8px rgba(0,0,0,.25);
+  }
+  .help-btn:hover {
+    border-color:var(--accent); background:var(--panel2);
+    transform:scale(1.08);
+  }
+  .help-btn:active { transform:scale(.96); }
+
+  /* --- モーダル --- */
+  .modal {
+    position:fixed; inset:0; z-index:100;
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .modal[hidden] { display:none; }
+  .modal-backdrop {
+    position:absolute; inset:0;
+    background:rgba(0,0,0,.65); backdrop-filter:blur(3px);
+    animation:fadein .15s ease-out;
+  }
+  .modal-panel {
+    position:relative; background:var(--panel);
+    border:1px solid var(--border); border-radius:10px;
+    max-width:780px; width:100%; max-height:86vh; overflow-y:auto;
+    padding:26px 32px 22px 32px;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);
+    animation:slidein .18s ease-out;
+  }
+  @keyframes fadein { from { opacity:0; } to { opacity:1; } }
+  @keyframes slidein { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  .modal-panel h2 {
+    margin:0 0 16px 0; font-size:18px; color:var(--accent);
+    padding-bottom:8px; border-bottom:1px solid var(--border);
+    letter-spacing:.04em;
+  }
+  .modal-panel section { margin:18px 0; }
+  .modal-panel section h3 {
+    margin:0 0 8px 0; font-size:14px; color:var(--fg);
+    letter-spacing:.03em;
+  }
+  .modal-panel section h3::before {
+    content:"▸ "; color:var(--accent); margin-right:2px;
+  }
+  .modal-panel p, .modal-panel ul, .modal-panel ol {
+    margin:6px 0; color:var(--fg); font-size:13px; line-height:1.7;
+  }
+  .modal-panel ul, .modal-panel ol { padding-left:22px; }
+  .modal-panel li { margin:2px 0; }
+  .modal-panel code {
+    background:var(--panel2); color:var(--accent);
+    font-family:var(--mono); font-size:11.5px;
+    padding:1px 6px; border-radius:3px; border:1px solid var(--border);
+  }
+  .modal-close {
+    position:absolute; top:10px; right:12px;
+    width:30px; height:30px; border-radius:50%;
+    background:transparent; color:var(--muted);
+    border:1px solid var(--border); font-size:18px; font-weight:400;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    line-height:1; transition:all .15s;
+  }
+  .modal-close:hover { color:var(--err); border-color:var(--err); background:rgba(248,81,73,.08); }
+  table.help-tbl {
+    width:100%; border-collapse:collapse; margin:8px 0;
+    font-size:12px; background:var(--panel2);
+    border:1px solid var(--border); border-radius:4px; overflow:hidden;
+  }
+  table.help-tbl th, table.help-tbl td {
+    padding:5px 10px; text-align:left; border-bottom:1px solid var(--border);
+  }
+  table.help-tbl th {
+    background:rgba(79,179,255,.08); color:var(--muted); font-weight:500;
+  }
+  table.help-tbl tr:last-child td { border-bottom:0; }
+  kbd {
+    display:inline-block; padding:1px 6px; border:1px solid var(--border);
+    border-bottom-width:2px; border-radius:3px;
+    background:var(--panel2); color:var(--fg);
+    font-family:var(--mono); font-size:11px; line-height:1.2;
+  }
+  .help-foot {
+    margin-top:22px; padding-top:10px; border-top:1px solid var(--border);
+    color:var(--muted); font-size:11px; text-align:right;
+  }
+</style>
+</head>
+<body>
+  <button class="help-btn" id="helpBtn" title="取説" aria-label="取説を開く">?</button>
+
+  <h1>樹抽出 数量表ジェネレータ <small>v0.1 · ローカル処理のみ</small></h1>
+  <p class="tagline">人間がCSVを読む時代は、そろそろ終わっていい。</p>
+  <p class="lead">
+    樹プロパティCSV3本 + 辞書xlsxをD&amp;D → Step1/2/3.xlsx を生成。
+    データはブラウザ内でのみ処理され、外部送信されません。
+  </p>
+
+  <!-- 取説モーダル -->
+  <div class="modal" id="helpModal" hidden>
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-panel">
+      <button class="modal-close" data-close aria-label="閉じる">×</button>
+      <h2>取扱説明</h2>
+      <section>
+        <h3>ざっくり使い方</h3>
+        <ol>
+          <li>画面上部の<b>大きな箱</b>に、樹プロパティCSV3本 + 辞書<code>mapping_dict.xlsx</code>をまとめてD&amp;D。<br>
+             ファイル名で自動振り分け: <code>樹プロパティ設定_アンテナ</code> / <code>ケーブル</code> / <code>機器個別要素なし</code> → 各スロット。<code>.xlsx</code> → 辞書。</li>
+          <li>オプション調整 (モード/桃1/並び順)。</li>
+          <li><b>[実行]</b> → xlsxダウンロード + TSVコピー + プレビュー。</li>
+        </ol>
+      </section>
+      <section>
+        <h3>色ルール (CSVの「線色」列)</h3>
+        <table class="help-tbl">
+          <tr><th>色</th><th>意味</th><th>既定</th></tr>
+          <tr><td>赤1</td><td>新設</td><td>集計</td></tr>
+          <tr><td>青1</td><td>撤去</td><td>集計</td></tr>
+          <tr><td>黒</td><td>既設</td><td>除外</td></tr>
+          <tr><td>桃1</td><td>他社</td><td>除外 (チェックで含められる)</td></tr>
+        </table>
+      </section>
+      <section>
+        <h3>モード</h3>
+        <ul>
+          <li><b>集計モード</b> (既定): セクタ語尾を検出し <code>SAMPLE-ANT-01</code> ×3 / 記事欄=<code>SecA,B,C</code> に畳む。</li>
+          <li><b>一覧モード</b>: 機器表示名ごとに別行 (<code>Asec/Bsec/Csec</code> を保持)。</li>
+        </ul>
+        <p>セクタ検出対象の語尾:<br>
+        ① 共通: <code>Asec</code> / <code>SecA</code> / <code>Sec-B</code> / <code>sec.A</code> 等<br>
+        ② RFM/RRH/RRU/ANT を含む名称: <code>-A</code> <code>-B</code> <code>-C</code> (末尾単独文字、A/B/C限定)
+        </p>
+        <p>プレビューは「修正有 / 修正無」のサブタブで両方同時に確認可。</p>
+      </section>
+      <section>
+        <h3>辞書 <code>mapping_dict.xlsx</code></h3>
+        <p><b>[mapping] シート</b></p>
+        <table class="help-tbl">
+          <tr><th>列</th><th>例</th></tr>
+          <tr><td>カテゴリ</td><td><code>antenna</code>/<code>cable</code>/<code>equipment</code></td></tr>
+          <tr><td>マッチキー</td><td><code>SAMPLE-CBL-50</code> / <code>設備=給電線</code></td></tr>
+          <tr><td>表示名</td><td><code>{model},{len}m,({conn1}/{conn2})</code></td></tr>
+          <tr><td>単位/記事欄/除外フラグ</td><td><code>本</code> / 任意 / <code>除外</code></td></tr>
+        </table>
+        <p>マッチ順: <b>機器表示名 → 型式 → 設備=&lt;設備種別名称&gt;</b>。<br>
+        トークン: <code>{len}</code> <code>{conn1}</code> <code>{conn2}</code> <code>{model}</code>。</p>
+        <p><b>[extras] シート</b>: CSVに無いが毎回数量表末尾に加算したい品目 (架台・HVIE等)。</p>
+        <p><b>[order] シート</b>: 設備種別名称の並び順 (1列目、上から優先)。UI「並び順」テキストエリアと連動。</p>
+      </section>
+      <section>
+        <h3>出力ファイル</h3>
+        <ul>
+          <li><code>Step1_全データ一覧.xlsx</code>: 3CSV統合＋色フラグ</li>
+          <li><code>Step2_集計草案.xlsx</code>: 辞書適用後 (設備種別名称列含む)</li>
+          <li><code>Step3_数量表.xlsx</code>: 作業シート / 4-1二段組</li>
+          <li><code>mapping_dict.xlsx</code>: 未登録品目が追記された更新版</li>
+          <li>📋ボタン: 既存Excelテンプレに直貼り用のTSVコピー</li>
+        </ul>
+      </section>
+      <section>
+        <h3>学習の回し方</h3>
+        <ol>
+          <li>Step2の未登録タブを確認。</li>
+          <li>辞書 <code>mapping</code> シートに転記 (表示名/単位/記事欄/除外フラグ)。</li>
+          <li>次回以降は黄色が消え、同じ品目は自動整形。</li>
+          <li>辞書xlsxは支店内共有推奨 (全員の知見が蓄積)。</li>
+        </ol>
+      </section>
+      <section>
+        <h3>情報漏洩対策</h3>
+        <ul>
+          <li>処理はブラウザ内のみ (外部送信なし)。</li>
+          <li>CDN依存: PapaParse / SheetJS。完全オフライン化したい場合は両ライブラリをローカル同梱に。</li>
+          <li>GitHub公開時は <code>.gitignore</code> で辞書・CSV・Step出力を除外済。</li>
+        </ul>
+      </section>
+      <p class="help-foot">このモーダルは <kbd>Esc</kbd> / 背景クリック / 右上× で閉じる。</p>
+    </div>
+  </div>
+
+  <div class="bulkdz" id="bulkdz">
+    <div class="bulkdz-main">
+      <span class="bulkdz-ico">⬇</span>
+      <span>CSV3本 (＋辞書xlsx) をここにまとめてD&amp;D</span>
+    </div>
+    <div class="bulkdz-sub">ファイル名「アンテナ」「ケーブル」「機器」を含むCSVが自動で下段の各スロットに振り分けられます (樹プロパティ設定_アンテナ/ケーブル/機器個別要素なし)</div>
+  </div>
+
+  <div class="grid">
+    <div class="dz" data-slot="antenna"><h3>アンテナ CSV</h3>
+      <div class="name">(未指定)</div>
+      <label class="pick">参照...<input type="file" accept=".csv"></label>
+      <div class="hint">ファイル名に「アンテナ」を含む</div>
+      <div class="clr" hidden>クリア</div>
+    </div>
+    <div class="dz" data-slot="cable"><h3>ケーブル CSV</h3>
+      <div class="name">(未指定)</div>
+      <label class="pick">参照...<input type="file" accept=".csv"></label>
+      <div class="hint">ファイル名に「ケーブル」を含む</div>
+      <div class="clr" hidden>クリア</div>
+    </div>
+    <div class="dz" data-slot="equipment"><h3>機器個別要素なし CSV</h3>
+      <div class="name">(未指定)</div>
+      <label class="pick">参照...<input type="file" accept=".csv"></label>
+      <div class="hint">ファイル名に「機器」を含む</div>
+      <div class="clr" hidden>クリア</div>
+    </div>
+    <div class="dz dict" data-slot="dict"><h3>辞書 xlsx (任意)</h3>
+      <div class="name">(未指定)</div>
+      <label class="pick">参照...<input type="file" accept=".xlsx,.xls"></label>
+      <div class="hint">空なら未登録まま出力</div>
+      <div class="clr" hidden>クリア</div>
+    </div>
+  </div>
+
+  <div class="opts">
+    <label>モード
+      <select id="mode">
+        <option value="list">一覧モード (SecA/B/Cを別行)</option>
+        <option value="agg" selected>集計モード (Sec統合・×N表記)</option>
+      </select>
+    </label>
+    <label><input type="checkbox" id="pink"> 桃1 (他社) も含める</label>
+    <label><input type="checkbox" id="autolearn" checked> 未登録品目を辞書に自動追記</label>
+    <span style="flex:1"></span>
+    <button class="run" id="runBtn" disabled>実行</button>
+  </div>
+
+  <details id="orderPanel">
+    <summary>並び順: 設備種別名称 (クリックで開閉)</summary>
+    <div style="display:flex; gap:10px; align-items:flex-start; margin-top:8px;">
+      <textarea id="orderText" rows="6" spellcheck="false"
+        style="flex:1; background:#0a0e13; color:var(--fg); border:1px solid var(--border);
+               border-radius:4px; padding:6px 10px; font-family:var(--mono); font-size:12px;"
+        placeholder="設備種別名称を1行ずつ記入 (上から優先)&#10;例:&#10;アンテナ&#10;RRH&#10;給電線&#10;BBU"></textarea>
+      <div style="display:flex; flex-direction:column; gap:6px; min-width:180px;">
+        <small style="color:var(--muted)">辞書xlsx の <code>order</code> シートから自動読込。リスト外は末尾。</small>
+        <button class="ghost" id="orderFromDict" type="button">辞書から取り込み</button>
+        <button class="ghost" id="orderClear" type="button">クリア</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="downloads" id="dls"></div>
+
+  <div class="tabs" id="tabs" hidden>
+    <button data-tab="summary" class="active">集計プレビュー</button>
+    <button data-tab="unresolved">未登録一覧</button>
+    <button data-tab="log">ログ</button>
+  </div>
+  <div class="tab-body active" data-tab="summary" id="tab-summary"></div>
+  <div class="tab-body" data-tab="unresolved" id="tab-unresolved"></div>
+  <div class="tab-body" data-tab="log"><div class="log" id="log"></div></div>
+
+  <details>
+    <summary>辞書フォーマット (mapping_dict.xlsx)</summary>
+    <pre>シート [mapping]:
+  カテゴリ | マッチキー | 表示名 | 単位 | 記事欄 | 除外フラグ | 出現回数
+  マッチ順: 機器表示名 → 型式 → 設備=&lt;設備種別名称&gt;
+  表示名のトークン: {len}, {conn1}, {conn2}, {model}
+  例: cable | 設備=給電線 | {model},{len}m,({conn1}/{conn2}) | 本 | | |
+シート [extras]:
+  工種 | 項目 | 単位 | 合計 | 記事欄
+  (CSVに無いが毎回数量表末尾に足したい品目：架台・HVIE等)
+    </pre>
+  </details>
+
+  <div class="footer">
+    <span>色ルール: 赤1=新設 / 青1=撤去 / 黒=既設(除外) / 桃1=他社(既定除外)</span>
+    <span id="ver">local-only</span>
+  </div>
+
+<script>
+"use strict";
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+// ============================================================
+// 入力スロット
+// ============================================================
+const slots = { antenna:null, cable:null, equipment:null, dict:null };
+
+function classify(name) {
+  if (/\.xlsx?$/i.test(name)) return 'dict';
+  if (name.includes('アンテナ')) return 'antenna';
+  if (name.includes('ケーブル')) return 'cable';
+  if (name.includes('機器個別要素なし') || name.includes('機器')) return 'equipment';
+  return null;
+}
+
+function setSlot(key, file) {
+  slots[key] = file;
+  const dz = document.querySelector(`.dz[data-slot="${key}"]`);
+  dz.querySelector('.name').textContent = file ? file.name : '(未指定)';
+  dz.classList.toggle('ok', !!file);
+  dz.querySelector('.clr').hidden = !file;
+  refreshRun();
+}
+
+function refreshRun() {
+  const hasCsv = slots.antenna || slots.cable || slots.equipment;
+  $('#runBtn').disabled = !hasCsv;
+}
+
+// D&D bindings
+$$('.dz').forEach(dz => {
+  const slot = dz.dataset.slot;
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('hover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('hover'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('hover');
+    // ページ全体にもハンドラがあるので、ここではこのスロットに強制割当
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 1) {
+      setSlot(slot, files[0]);
+    } else {
+      files.forEach(f => autoAssign(f));
+    }
+  });
+  dz.querySelector('input[type=file]').addEventListener('change', e => {
+    if (e.target.files[0]) setSlot(slot, e.target.files[0]);
+  });
+  dz.querySelector('.clr').addEventListener('click', () => setSlot(slot, null));
+});
+
+// バルクD&D (ヘッダの大きな箱)
+const bulk = $('#bulkdz');
+bulk.addEventListener('dragover', e => { e.preventDefault(); bulk.classList.add('hover'); });
+bulk.addEventListener('dragleave', () => bulk.classList.remove('hover'));
+bulk.addEventListener('drop', e => {
+  e.preventDefault(); bulk.classList.remove('hover');
+  Array.from(e.dataTransfer.files).forEach(autoAssign);
+});
+// ページ全体D&D (まとめて落としたとき自動振り分け)
+document.body.addEventListener('dragover', e => e.preventDefault());
+document.body.addEventListener('drop', e => {
+  if (e.target.closest('.dz') || e.target.closest('.bulkdz')) return; // スロット/バルク側で処理済み
+  e.preventDefault();
+  Array.from(e.dataTransfer.files).forEach(autoAssign);
+});
+function autoAssign(f) {
+  const k = classify(f.name);
+  if (k) setSlot(k, f);
+  else log('warn', `スキップ: 種別不明 ${f.name}`);
+}
+
+// タブ
+$$('.tabs button').forEach(b => {
+  b.addEventListener('click', () => {
+    $$('.tabs button').forEach(x => x.classList.toggle('active', x===b));
+    $$('.tab-body').forEach(x => x.classList.toggle('active', x.dataset.tab===b.dataset.tab));
+  });
+});
+
+// 取説モーダル
+(function bindHelpModal() {
+  const modal = $('#helpModal');
+  const open = () => {
+    modal.hidden = false;
+    // パネル先頭にスクロール
+    const panel = modal.querySelector('.modal-panel');
+    if (panel) panel.scrollTop = 0;
+  };
+  const close = () => { modal.hidden = true; };
+  $('#helpBtn').addEventListener('click', open);
+  modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', close));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !modal.hidden) close();
+  });
+})();
+
+// order ボタン
+$('#orderClear').addEventListener('click', () => { $('#orderText').value = ''; });
+$('#orderFromDict').addEventListener('click', async () => {
+  if (!slots.dict) { log('warn', '辞書スロットにxlsxを入れてください'); return; }
+  const d = await readDict(slots.dict);
+  $('#orderText').value = formatOrder(d.order);
+  log('ok', `辞書から並び順を取り込み (${d.order.length}件)`);
+});
+
+// ============================================================
+// ログ
+// ============================================================
+function log(level, msg) {
+  const el = $('#log');
+  const ts = new Date().toLocaleTimeString('ja-JP', { hour12:false });
+  const span = document.createElement('div');
+  span.className = 'l-' + (level||'ok');
+  span.textContent = `[${ts}] ${msg}`;
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+function logHR() { log('hr', '─'.repeat(60)); }
+
+// ============================================================
+// CSV 読み込み (樹プロパティ: 先頭1行スキップ, utf-8 BOM)
+// ============================================================
+function readCsv(file) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(file, {
+      encoding: 'utf-8', header: false, skipEmptyLines: false,
+      complete: res => {
+        const all = res.data;
+        if (!all.length) return resolve([]);
+        // 1行目は補助ヘッダ。2行目がカラム名。
+        const headerRow = all[1] || [];
+        const cols = headerRow.map(c => (c||'').toString().replace(/^\uFEFF/,'').trim());
+        const out = [];
+        for (let i=2; i<all.length; i++) {
+          const r = all[i];
+          if (!r || r.every(c => !String(c||'').trim())) continue;
+          const obj = {};
+          cols.forEach((c,j) => { obj[c] = (r[j]||'').toString().replace(/\r?\n/g,' ').trim(); });
+          out.push(obj);
+        }
+        resolve(out);
+      },
+      error: reject
+    });
+  });
+}
+
+// ============================================================
+// 辞書 xlsx 読み込み
+// ============================================================
+const DICT_COLS = ['カテゴリ','マッチキー','表示名','単位','記事欄','除外フラグ','出現回数'];
+const EXTRAS_COLS = ['工種','項目','単位','合計','記事欄'];
+
+async function readDict(file) {
+  if (!file) return { mapping:[], extras:[], order:[] };
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type:'array' });
+  const readSheet = (name, cols) => {
+    const ws = wb.Sheets[name];
+    if (!ws) return [];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
+    return rows.map(r => {
+      const o = {}; cols.forEach(c => o[c] = (r[c]!=null?String(r[c]):'')); return o;
+    });
+  };
+  // order シート: 1列「設備種別名称」のみ
+  let order = [];
+  const wsOrd = wb.Sheets['order'];
+  if (wsOrd) {
+    const rows = XLSX.utils.sheet_to_json(wsOrd, { defval:'', raw:false });
+    order = rows.map(r => String(r['設備種別名称'] ?? r[Object.keys(r)[0]] ?? '').trim()).filter(Boolean);
+  }
+  return {
+    mapping: readSheet('mapping', DICT_COLS),
+    extras:  readSheet('extras',  EXTRAS_COLS),
+    order,
+  };
+}
+
+// ============================================================
+// 集計ロジック
+// ============================================================
+const COLOR_KIND = { '赤1':'新設', '青1':'撤去' };
+
+function aggregate(dfs, includePink) {
+  const exclude = new Set(['黒']);
+  if (!includePink) exclude.add('桃1');
+  const allrows = [];
+  for (const [cat, rows] of Object.entries(dfs)) {
+    for (const r of rows) {
+      const color = r['線色'] || '';
+      const kind = COLOR_KIND[color] || '';
+      const excluded = exclude.has(color);
+      allrows.push({
+        カテゴリ:cat, 工種:kind, _除外:excluded, ...r
+      });
+    }
+  }
+  // 新設/撤去のみ集計対象
+  const targetRows = allrows.filter(r => !r._除外 && (r.工種==='新設'||r.工種==='撤去'));
+  const groupKey = r => [
+    r.カテゴリ, r.工種, r['機器表示名']||'', r['型式']||'',
+    Number(r['ケーブル長'])||0,
+    ((r['端子1_コネクタ種別']||'')+' '+(r['端子1_コネクタ性別']||'')).trim(),
+    ((r['端子2_コネクタ種別']||'')+' '+(r['端子2_コネクタ性別']||'')).trim(),
+    r['設備種別名称']||''
+  ].join('\u0001');
+
+  const agg = new Map();
+  for (const r of targetRows) {
+    const k = groupKey(r);
+    if (!agg.has(k)) {
+      agg.set(k, {
+        カテゴリ:r.カテゴリ, 工種:r.工種,
+        機器表示名:r['機器表示名']||'', 型式:r['型式']||'',
+        ケーブル長:Number(r['ケーブル長'])||0,
+        conn1:((r['端子1_コネクタ種別']||'')+' '+(r['端子1_コネクタ性別']||'')).trim(),
+        conn2:((r['端子2_コネクタ種別']||'')+' '+(r['端子2_コネクタ性別']||'')).trim(),
+        設備種別名称:r['設備種別名称']||'', 数量:0
+      });
+    }
+    agg.get(k).数量 += 1;
+  }
+  return { allrows, agg:Array.from(agg.values()) };
+}
+
+// ============================================================
+// 辞書適用
+// ============================================================
+function lookup(mp, cat, 機器表示名, 型式, 設備) {
+  const sub = mp.filter(r => r['カテゴリ']===cat);
+  for (const key of [機器表示名, 型式]) {
+    if (!key) continue;
+    const hit = sub.find(r => String(r['マッチキー'])===String(key));
+    if (hit) return hit;
+  }
+  if (設備) {
+    const hit = sub.find(r => String(r['マッチキー'])===`設備=${設備}`);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function expandTemplate(tmpl, len, c1, c2, model) {
+  if (!tmpl) return '';
+  const lenStr = len ? String(len) : '';
+  let s = tmpl.replace(/\{(len|conn1|conn2|model)\}/g, (_,k) =>
+    ({len:lenStr, conn1:c1||'', conn2:c2||'', model:model||''}[k] || ''));
+  s = s.replace(/,\s*,/g, ',').replace(/^[,\s]+|[,\s]+$/g, '').trim();
+  return s;
+}
+
+function defaultUnit(cat) { return {antenna:'本', cable:'本', equipment:'台'}[cat] || '個'; }
+
+// 設備種別名称を優先キーにするソート (辞書 order シート / UIテキストエリア由来)
+function sortByOrder(rows, order) {
+  const idx = new Map((order||[]).map((k, i) => [k, i]));
+  return rows.slice().sort((a, b) => {
+    const ka = a.設備種別名称 || ''; const kb = b.設備種別名称 || '';
+    const ia = idx.has(ka) ? idx.get(ka) : 9999;
+    const ib = idx.has(kb) ? idx.get(kb) : 9999;
+    if (ia !== ib) return ia - ib;
+    if (ka !== kb) return ka.localeCompare(kb);
+    const kindOrder = { 新設:0, 撤去:1 };
+    const ja = kindOrder[a.工種] ?? 9; const jb = kindOrder[b.工種] ?? 9;
+    if (ja !== jb) return ja - jb;
+    return (a.項目||'').localeCompare(b.項目||'');
+  });
+}
+
+// ============================================================
+// セクタ統合 (集計モード)
+// ============================================================
+// SAMPLE-ANT-01 Asec / Bsec / Csec → SAMPLE-ANT-01 ×3 SecA,B,C
+// 検出パターン (語尾):
+//   "<base> Asec"  "<base>_Asec"  "<base>-Bsec"  "<base> SecA"  "<base>_Sec_A"
+//   RFM/RRH/RRU/ANT を含む名称では末尾 <sep>[A-C] も対象にする (例: "RRH-1E1-A")
+function parseSector(name) {
+  let m;
+  // <base><sep><X>sec
+  m = name.match(/^(.+?)[\s_\-]+([A-Z])[\s_\-]?sec\.?\s*$/i);
+  if (m) return { base: m[1].trim(), sec: m[2].toUpperCase() };
+  // <base><sep>sec<X>
+  m = name.match(/^(.+?)[\s_\-]+sec[\s_\-\.]?([A-Z])\s*$/i);
+  if (m) return { base: m[1].trim(), sec: m[2].toUpperCase() };
+  // RFM/RRH/RRU/ANT を含む項目は末尾 <sep>[A-C] も拾う (誤爆回避のためA-Cに限定)
+  if (/RFM|RRH|RRU|ANT/i.test(name)) {
+    m = name.match(/^(.+?)[\s_\-]+([A-C])\s*$/);
+    if (m) return { base: m[1].trim(), sec: m[2] };
+  }
+  return { base: name, sec: null };
+}
+
+function collapseSectors(merged) {
+  const buckets = new Map();
+  const out = [];
+  for (const r of merged) {
+    const { base, sec } = parseSector(r.項目 || '');
+    if (!sec) { out.push({ ...r }); continue; }
+    const k = [r.カテゴリ, r.工種, base, r.単位, r.除外, r.辞書ヒット, r.設備種別名称||''].join('\u0001');
+    if (!buckets.has(k)) {
+      buckets.set(k, {
+        ...r, 項目: base,
+        _sectors: new Set([sec]),
+        _origNote: r.記事欄 || '',
+      });
+    } else {
+      const b = buckets.get(k);
+      b.合計 += r.合計;
+      b._sectors.add(sec);
+    }
+  }
+  for (const b of buckets.values()) {
+    const secs = Array.from(b._sectors).sort().join(',');
+    const note = [b._origNote, `Sec${secs}`].filter(Boolean).join(' / ');
+    out.push({ ...b, 記事欄: note, _sectors: undefined, _origNote: undefined });
+  }
+  return out;
+}
+
+function applyDict(agg, mapping, autoLearn) {
+  const mp = mapping.map(r => ({...r}));
+  const rows = [];
+  const unresolved = [];
+  for (const r of agg) {
+    const hit = lookup(mp, r.カテゴリ, r.機器表示名, r.型式, r.設備種別名称);
+    let display, unit, note, excluded=false, resolved=false;
+    if (!hit) {
+      display = r.機器表示名 || r.型式;
+      if (r.カテゴリ==='cable' && r.ケーブル長) display = `${display},${r.ケーブル長}m`;
+      unit = defaultUnit(r.カテゴリ); note=''; resolved=false;
+      unresolved.push({ カテゴリ:r.カテゴリ, 機器表示名:r.機器表示名, 型式:r.型式, 数量:r.数量 });
+    } else {
+      resolved = true;
+      excluded = String(hit['除外フラグ']||'').trim()==='除外';
+      const tmpl = String(hit['表示名']||'').trim();
+      display = tmpl ? expandTemplate(tmpl, r.ケーブル長, r.conn1, r.conn2, r.型式) : (r.機器表示名||r.型式);
+      unit = String(hit['単位']||'').trim() || defaultUnit(r.カテゴリ);
+      note = String(hit['記事欄']||'').trim();
+    }
+    rows.push({ カテゴリ:r.カテゴリ, 工種:r.工種, 項目:display, 単位:unit,
+                合計:r.数量, 記事欄:note, 除外:excluded, 辞書ヒット:resolved,
+                機器表示名:r.機器表示名, 型式:r.型式, ケーブル長:r.ケーブル長,
+                端子1:r.conn1, 端子2:r.conn2,
+                設備種別名称:r.設備種別名称||'' });
+  }
+
+  // 同一 (カテゴリ,工種,項目,単位,記事欄,設備種別名称) を合算
+  const merged = [];
+  const mkey = x => [x.カテゴリ,x.工種,x.項目,x.単位,x.記事欄,x.除外,x.辞書ヒット,x.設備種別名称||''].join('\u0001');
+  const bucket = new Map();
+  for (const r of rows) {
+    const k = mkey(r);
+    if (!bucket.has(k)) bucket.set(k, {...r, 機器表示名_set:new Set([r.機器表示名]), 型式_set:new Set([r.型式])});
+    else {
+      const b = bucket.get(k);
+      b.合計 += r.合計;
+      if (r.機器表示名) b.機器表示名_set.add(r.機器表示名);
+      if (r.型式) b.型式_set.add(r.型式);
+    }
+  }
+  for (const b of bucket.values()) {
+    b.機器表示名 = Array.from(b.機器表示名_set).filter(Boolean).sort().join(';');
+    b.型式       = Array.from(b.型式_set).filter(Boolean).sort().join(';');
+    delete b.機器表示名_set; delete b.型式_set;
+    merged.push(b);
+  }
+
+  // 辞書への未登録追記
+  let added = 0;
+  if (autoLearn) {
+    for (const u of unresolved) {
+      const cand = [u.機器表示名, u.型式].filter(Boolean);
+      const exists = cand.some(k => mp.some(m => m['カテゴリ']===u.カテゴリ && String(m['マッチキー'])===String(k)));
+      if (exists) continue;
+      const key = u.機器表示名 || u.型式;
+      mp.push({
+        カテゴリ:u.カテゴリ, マッチキー:key, 表示名:'', 単位:defaultUnit(u.カテゴリ),
+        記事欄:'', 除外フラグ:'', 出現回数:String(u.数量)
+      });
+      added++;
+    }
+  }
+  // 出現回数更新
+  for (const r of agg) {
+    for (const key of [r.機器表示名, r.型式]) {
+      if (!key) continue;
+      const hit = mp.find(m => m['カテゴリ']===r.カテゴリ && String(m['マッチキー'])===String(key));
+      if (hit) {
+        const cur = Number(hit['出現回数'])||0;
+        hit['出現回数'] = String(cur + r.数量);
+        break;
+      }
+    }
+  }
+  return { merged, unresolved, mapping:mp, added };
+}
+
+// ============================================================
+// xlsx 書き出し
+// ============================================================
+function aoaToBook(sheets) {
+  const wb = XLSX.utils.book_new();
+  for (const [name, aoa] of sheets) {
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    XLSX.utils.book_append_sheet(wb, ws, name);
+  }
+  return wb;
+}
+
+function bookToBlob(wb) {
+  const out = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+  return new Blob([out], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function bookSheetToTSV(wb, sheetName) {
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return '';
+  // SheetJS純正 TSV: セル内の改行/タブは空白化
+  return XLSX.utils.sheet_to_csv(ws, { FS: '\t', RS: '\n', blankrows: true });
+}
+
+function writeStep1(allrows) {
+  if (!allrows.length) return aoaToBook([['全データ一覧', [[]]]]);
+  const first = ['カテゴリ','工種','_除外'];
+  const rest = Object.keys(allrows[0]).filter(k => !first.includes(k));
+  const cols = [...first, ...rest];
+  const aoa = [cols, ...allrows.map(r => cols.map(c => r[c] ?? ''))];
+  return aoaToBook([['全データ一覧', aoa]]);
+}
+
+function writeStep2(merged, unresolved, order) {
+  const cols = ['設備種別名称','カテゴリ','工種','項目','単位','合計','記事欄',
+                '除外','辞書ヒット','機器表示名','型式','ケーブル長','端子1','端子2'];
+  const sorted = sortByOrder(merged, order);
+  const s1 = [cols, ...sorted.map(r => cols.map(c => r[c] ?? ''))];
+  const s2 = [['カテゴリ','機器表示名','型式','数量'],
+              ...unresolved.map(u => [u.カテゴリ, u.機器表示名, u.型式, u.数量])];
+  return aoaToBook([['集計草案', s1], ['未登録一覧', s2]]);
+}
+
+function writeStep3(merged, extras, order) {
+  const df = sortByOrder(merged.filter(r => !r.除外), order);
+
+  // 作業シート: 工種ごとに並べ替え、セクション境界に空行
+  const hdr = ['設備種別名称','項目','工種','単位','合計','記事欄'];
+  const sheet1 = [hdr];
+  let prev = null;
+  for (const r of df) {
+    const tag = `${r.工種}|${r.設備種別名称||''}`;
+    if (prev && prev!==tag) sheet1.push(['','','','','','']);
+    sheet1.push([r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄]);
+    prev = tag;
+  }
+  if (extras && extras.length) {
+    sheet1.push(['','','','','','']);
+    sheet1.push(['','▼ 固定追加項目 (extras)','','','','']);
+    for (const x of extras) {
+      if (!String(x['項目']||'').trim()) continue;
+      sheet1.push(['', x['項目'], x['工種'], x['単位'], Number(x['合計'])||0, x['記事欄']]);
+    }
+  }
+
+  // 二段組 (新設|撤去)
+  const sheet2 = [[...hdr, '', ...hdr]];
+  const toRow = r => [r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄];
+  const newSide = df.filter(r => r.工種==='新設').map(toRow);
+  const remSide = df.filter(r => r.工種==='撤去').map(toRow);
+  if (extras && extras.length) {
+    for (const x of extras) {
+      if (!String(x['項目']||'').trim()) continue;
+      const row = ['', x['項目'], x['工種'], x['単位'], Number(x['合計'])||0, x['記事欄']];
+      if (x['工種']==='新設') newSide.push(row); else if (x['工種']==='撤去') remSide.push(row);
+    }
+  }
+  const blank = ['','','','','',''];
+  const n = Math.max(newSide.length, remSide.length);
+  for (let i=0;i<n;i++) {
+    const l = newSide[i] || blank;
+    const r = remSide[i] || blank;
+    sheet2.push([...l, '', ...r]);
+  }
+  return aoaToBook([['作業シート', sheet1], ['4-1_工事総括数量表', sheet2]]);
+}
+
+function writeDict(mapping, extras, order) {
+  const s1 = [DICT_COLS, ...mapping.map(r => DICT_COLS.map(c => r[c] ?? ''))];
+  const s2 = [EXTRAS_COLS, ...extras.map(r => EXTRAS_COLS.map(c => r[c] ?? ''))];
+  const s3 = [['設備種別名称'], ...(order||[]).map(v => [v])];
+  return aoaToBook([['mapping', s1], ['extras', s2], ['order', s3]]);
+}
+
+// ============================================================
+// 実行
+// ============================================================
+$('#runBtn').addEventListener('click', async () => {
+  const btn = $('#runBtn'); btn.disabled = true;
+  $('#dls').innerHTML = ''; $('#tab-summary').innerHTML=''; $('#tab-unresolved').innerHTML='';
+  $('#log').innerHTML = ''; $('#tabs').hidden = true;
+  logHR();
+  try {
+    const dfs = { antenna:[], cable:[], equipment:[] };
+    for (const key of ['antenna','cable','equipment']) {
+      if (slots[key]) {
+        dfs[key] = await readCsv(slots[key]);
+        log('ok', `${key}: ${slots[key].name} (${dfs[key].length}行)`);
+      } else {
+        log('warn', `${key}: 未指定`);
+      }
+    }
+    const dict = await readDict(slots.dict);
+    if (slots.dict) {
+      log('ok', `辞書: ${slots.dict.name} (mapping=${dict.mapping.length}, extras=${dict.extras.length}, order=${dict.order.length})`);
+      // orderシートがあって、UIテキストエリアが空なら自動反映
+      if (dict.order.length && !$('#orderText').value.trim()) {
+        $('#orderText').value = formatOrder(dict.order);
+        log('ok', `並び順を辞書order シートから取り込み (${dict.order.length}件)`);
+      }
+    } else log('warn', `辞書: 未指定 (空で動作)`);
+
+    const includePink = $('#pink').checked;
+    const autoLearn = $('#autolearn').checked;
+
+    const { allrows, agg } = aggregate(dfs, includePink);
+    log('ok', `集計: ${allrows.length}行 → ${agg.length}グループ`);
+
+    const { merged: mergedRaw, unresolved, mapping, added } = applyDict(agg, dict.mapping, autoLearn);
+    log('ok', `辞書ヒット: ${mergedRaw.filter(r=>r.辞書ヒット).length} / 未登録: ${unresolved.length}` +
+            (added ? ` (辞書に${added}件追記)` : ''));
+
+    // モード適用
+    const mode = $('#mode').value;
+    const merged = (mode === 'agg') ? collapseSectors(mergedRaw) : mergedRaw;
+    const collapsed = mergedRaw.length - merged.length;
+    log('ok', `モード: ${mode==='agg' ? `集計 (${collapsed}行をSec統合)` : '一覧'}`);
+
+    // 出力
+    const dls = $('#dls');
+    dls.innerHTML = '';
+    const mkDL = (wb, name) => {
+      const url = URL.createObjectURL(bookToBlob(wb));
+      const a = document.createElement('a');
+      a.href = url; a.download = name; a.textContent = `↓ ${name}`;
+      dls.appendChild(a);
+    };
+    const mkCopy = (tsv, label) => {
+      const b = document.createElement('button');
+      b.className = 'ghost'; b.textContent = `📋 ${label}をコピー`;
+      b.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(tsv);
+          b.textContent = `✓ コピー済`;
+          setTimeout(() => b.textContent = `📋 ${label}をコピー`, 1500);
+        } catch (e) {
+          log('err', `クリップボード: ${e.message}`);
+        }
+      });
+      dls.appendChild(b);
+    };
+    const order = parseOrderText($('#orderText').value);
+    const step1wb = writeStep1(allrows);
+    const step2wb = writeStep2(merged, unresolved, order);
+    const step3wb = writeStep3(merged, dict.extras, order);
+    const dictwb  = writeDict(mapping, dict.extras, order);
+    mkDL(step1wb, 'Step1_全データ一覧.xlsx');
+    mkDL(step2wb, 'Step2_集計草案.xlsx');
+    mkDL(step3wb, 'Step3_数量表.xlsx');
+    mkDL(dictwb,  'mapping_dict.xlsx');
+
+    // クリップボード用TSV (Step3の作業シートを貼り付け用に)
+    window._lastMerged = merged;
+    window._lastExtras = dict.extras;
+    window._lastUnresolved = unresolved;
+    mkCopy(bookSheetToTSV(step3wb, '作業シート'), 'Step3作業シート');
+    mkCopy(bookSheetToTSV(step3wb, '4-1_工事総括数量表'), '4-1(二段組)');
+    mkCopy(bookSheetToTSV(step2wb, '集計草案'), 'Step2集計草案');
+
+    // プレビュー (両ビューを用意してサブタブで切替)
+    renderSummary(mergedRaw, mode, order);
+    renderUnresolved(unresolved);
+    $('#tabs').hidden = false;
+    log('ok', '完了');
+  } catch (e) {
+    console.error(e);
+    log('err', `例外: ${e.message || e}`);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function renderSummary(mergedRaw, defaultMode, order) {
+  const el = $('#tab-summary');
+  if (!mergedRaw.length) { el.textContent = '(出力なし)'; return; }
+  const mergedAgg = collapseSectors(mergedRaw);
+  const sortedRaw = sortByOrder(mergedRaw, order);
+  const sortedAgg = sortByOrder(mergedAgg, order);
+  const views = [
+    { key: 'agg',  label: `Sec統合 (修正有)`, data: sortedAgg, count: sortedAgg.length },
+    { key: 'list', label: `一覧 (修正無)`,   data: sortedRaw, count: sortedRaw.length },
+  ];
+  const active = (defaultMode === 'list') ? 'list' : 'agg';
+
+  let html = `<div class="subtabs">`;
+  for (const v of views) {
+    html += `<button data-sub="${v.key}" class="${v.key===active?'active':''}">${v.label} <span class="badge">${v.count}</span></button>`;
+  }
+  const diff = mergedRaw.length - mergedAgg.length;
+  html += `<span class="subnote">Sec統合で ${diff} 行を統合</span>`;
+  html += `</div>`;
+  for (const v of views) {
+    html += `<div class="sub-body ${v.key===active?'active':''}" data-sub="${v.key}">${renderSummaryBody(v.data, v.key)}</div>`;
+  }
+  el.innerHTML = html;
+
+  // サブタブ切替
+  el.querySelectorAll('.subtabs button').forEach(b => {
+    b.addEventListener('click', () => {
+      el.querySelectorAll('.subtabs button').forEach(x => x.classList.toggle('active', x===b));
+      el.querySelectorAll('.sub-body').forEach(x => x.classList.toggle('active', x.dataset.sub===b.dataset.sub));
+    });
+  });
+
+  // コピーボタンのバインド
+  el.querySelectorAll('button[data-copy]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const [sub, kind] = btn.dataset.copy.split('|');
+      const src = (sub==='agg') ? sortedAgg : sortedRaw;
+      const rows = src.filter(r => r.工種===kind && !r.除外);
+      const tsv = ['設備種別名称\t項目\t単位\t合計\t記事欄',
+        ...rows.map(r => [r.設備種別名称||'', r.項目, r.単位, r.合計, r.記事欄].join('\t'))].join('\n');
+      try {
+        await navigator.clipboard.writeText(tsv);
+        const orig = btn.textContent;
+        btn.textContent = '✓ コピー済';
+        setTimeout(() => btn.textContent = orig, 1500);
+      } catch (e) { log('err', `コピー失敗: ${e.message}`); }
+    });
+  });
+}
+
+// order textarea <-> array
+function parseOrderText(s) {
+  return (s||'').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+}
+function formatOrder(arr) {
+  return (arr||[]).join('\n');
+}
+
+function renderSummaryBody(merged, subKey) {
+  const kinds = [['新設','new'],['撤去','rem']];
+  let html = '';
+  for (const [kind, cls] of kinds) {
+    const rows = merged.filter(r => r.工種===kind && !r.除外);
+    if (!rows.length) continue;
+    html += `<h3 style="margin:12px 0 4px 0"><span class="pill ${cls}">${kind}</span>${rows.length}品目 `;
+    html += `<button class="ghost" style="margin-left:8px;padding:2px 8px;font-size:11px" data-copy="${subKey}|${kind}">📋 この工種をTSVコピー</button></h3>`;
+    html += `<table class="summary"><tr><th>設備種別名称</th><th>項目</th><th>単位</th><th style="text-align:right">合計</th><th>記事欄</th><th></th></tr>`;
+    let prevEq = null;
+    for (const r of rows) {
+      const warn = r.辞書ヒット ? '' : ' unresolved';
+      const eq = r.設備種別名称 || '';
+      const sep = (prevEq !== null && prevEq !== eq) ? ' style="border-top:2px solid var(--border)"' : '';
+      html += `<tr class="${cls}${warn}"${sep}><td><span class="pill">${esc(eq)||'-'}</span></td><td>${esc(r.項目)}</td><td>${esc(r.単位)}</td><td style="text-align:right">${r.合計}</td><td>${esc(r.記事欄)}</td><td>${r.辞書ヒット?'':'<span class="pill">未登録</span>'}</td></tr>`;
+      prevEq = eq;
+    }
+    html += `</table>`;
+  }
+  return html;
+}
+
+function renderUnresolved(list) {
+  const el = $('#tab-unresolved');
+  if (!list.length) { el.innerHTML = '<p style="color:var(--muted)">未登録品目はありません</p>'; return; }
+  let html = `<p style="color:var(--muted);font-size:12px">辞書 mapping シートに転記 → 表示名・単位・記事欄・除外フラグを埋めてください。</p>`;
+  html += `<table class="summary"><tr><th>カテゴリ</th><th>機器表示名</th><th>型式</th><th style="text-align:right">数量</th></tr>`;
+  for (const u of list) {
+    html += `<tr class="unresolved"><td>${esc(u.カテゴリ)}</td><td>${esc(u.機器表示名)}</td><td>${esc(u.型式)}</td><td style="text-align:right">${u.数量}</td></tr>`;
+  }
+  html += `</table>`;
+  el.innerHTML = html;
+}
+
+function esc(s) { return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+log('ok', '起動: ローカル処理のみ / CDN: PapaParse + SheetJS');
+</script>
+</body>
+</html>
