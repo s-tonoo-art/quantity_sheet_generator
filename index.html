@@ -235,7 +235,7 @@
   <h1>樹抽出 数量表ジェネレータ <small>v0.1 · ローカル処理のみ</small></h1>
   <p class="tagline">人間がCSVを読む時代は、そろそろ終わっていい。</p>
   <p class="lead">
-    樹プロパティCSV3本 + 辞書xlsxをD&amp;D → Step1/2/3.xlsx を生成。
+    樹プロパティCSV3本 + 辞書xlsxをD&amp;D → 数量表.xlsx を生成。
     データはブラウザ内でのみ処理され、外部送信されません。
   </p>
 
@@ -294,9 +294,7 @@
       <section>
         <h3>出力ファイル</h3>
         <ul>
-          <li><code>Step1_全データ一覧.xlsx</code>: 3CSV統合＋色フラグ</li>
-          <li><code>Step2_集計草案.xlsx</code>: 辞書適用後 (設備種別名称列含む)</li>
-          <li><code>Step3_数量表.xlsx</code>: 作業シート / 4-1二段組</li>
+          <li><code>数量表_yyyymmddhhmm.xlsx</code>: 単一シート (設備種別名称/項目/工種/単位/合計/記事欄)。設備種別+工種の境界に空行。</li>
           <li><code>mapping_dict.xlsx</code>: 未登録品目が追記された更新版</li>
           <li>📋ボタン: 既存Excelテンプレに直貼り用のTSVコピー</li>
         </ul>
@@ -304,7 +302,7 @@
       <section>
         <h3>学習の回し方</h3>
         <ol>
-          <li>Step2の未登録タブを確認。</li>
+          <li>画面下の「未登録一覧」タブで黄色行を確認。</li>
           <li>辞書 <code>mapping</code> シートに転記 (表示名/単位/記事欄/除外フラグ)。</li>
           <li>次回以降は黄色が消え、同じ品目は自動整形。</li>
           <li>辞書xlsxは支店内共有推奨 (全員の知見が蓄積)。</li>
@@ -839,67 +837,30 @@ function bookSheetToTSV(wb, sheetName) {
   return XLSX.utils.sheet_to_csv(ws, { FS: '\t', RS: '\n', blankrows: true });
 }
 
-function writeStep1(allrows) {
-  if (!allrows.length) return aoaToBook([['全データ一覧', [[]]]]);
-  const first = ['カテゴリ','工種','_除外'];
-  const rest = Object.keys(allrows[0]).filter(k => !first.includes(k));
-  const cols = [...first, ...rest];
-  const aoa = [cols, ...allrows.map(r => cols.map(c => r[c] ?? ''))];
-  return aoaToBook([['全データ一覧', aoa]]);
-}
-
-function writeStep2(merged, unresolved, order) {
-  const cols = ['設備種別名称','カテゴリ','工種','項目','単位','合計','記事欄',
-                '除外','辞書ヒット','機器表示名','型式','ケーブル長','端子1','端子2'];
-  const sorted = sortByOrder(merged, order);
-  const s1 = [cols, ...sorted.map(r => cols.map(c => r[c] ?? ''))];
-  const s2 = [['カテゴリ','機器表示名','型式','数量'],
-              ...unresolved.map(u => [u.カテゴリ, u.機器表示名, u.型式, u.数量])];
-  return aoaToBook([['集計草案', s1], ['未登録一覧', s2]]);
-}
-
-function writeStep3(merged, extras, order) {
+function writeQuantityTable(merged, extras, order) {
+  // 単一シート「数量表」: 設備種別名称 + 工種 が切り替わるたびに空行を挟む
   const df = sortByOrder(merged.filter(r => !r.除外), order);
-
-  // 作業シート: 工種ごとに並べ替え、セクション境界に空行
   const hdr = ['設備種別名称','項目','工種','単位','合計','記事欄'];
-  const sheet1 = [hdr];
+  const rows = [hdr];
+  const blank = ['','','','','',''];
   let prev = null;
   for (const r of df) {
-    const tag = `${r.工種}|${r.設備種別名称||''}`;
-    if (prev && prev!==tag) sheet1.push(['','','','','','']);
-    sheet1.push([r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄]);
+    const tag = `${r.設備種別名称||''}|${r.工種}`;
+    if (prev && prev!==tag) rows.push(blank.slice());
+    rows.push([r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄]);
     prev = tag;
   }
   if (extras && extras.length) {
-    sheet1.push(['','','','','','']);
-    sheet1.push(['','▼ 固定追加項目 (extras)','','','','']);
-    for (const x of extras) {
-      if (!String(x['項目']||'').trim()) continue;
-      sheet1.push(['', x['項目'], x['工種'], x['単位'], Number(x['合計'])||0, x['記事欄']]);
+    const exs = extras.filter(x => String(x['項目']||'').trim());
+    if (exs.length) {
+      rows.push(blank.slice());
+      rows.push(['','▼ 固定追加項目 (extras)','','','','']);
+      for (const x of exs) {
+        rows.push(['', x['項目'], x['工種'], x['単位'], Number(x['合計'])||0, x['記事欄']]);
+      }
     }
   }
-
-  // 二段組 (新設|撤去)
-  const sheet2 = [[...hdr, '', ...hdr]];
-  const toRow = r => [r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄];
-  const newSide = df.filter(r => r.工種==='新設').map(toRow);
-  const remSide = df.filter(r => r.工種==='撤去').map(toRow);
-  if (extras && extras.length) {
-    for (const x of extras) {
-      if (!String(x['項目']||'').trim()) continue;
-      const row = ['', x['項目'], x['工種'], x['単位'], Number(x['合計'])||0, x['記事欄']];
-      if (x['工種']==='新設') newSide.push(row); else if (x['工種']==='撤去') remSide.push(row);
-    }
-  }
-  const blank = ['','','','','',''];
-  const n = Math.max(newSide.length, remSide.length);
-  for (let i=0;i<n;i++) {
-    const l = newSide[i] || blank;
-    const r = remSide[i] || blank;
-    sheet2.push([...l, '', ...r]);
-  }
-  return aoaToBook([['作業シート', sheet1], ['4-1_工事総括数量表', sheet2]]);
+  return aoaToBook([['数量表', rows]]);
 }
 
 function writeDict(mapping, extras, order) {
@@ -977,22 +938,24 @@ $('#runBtn').addEventListener('click', async () => {
       dls.appendChild(b);
     };
     const order = parseOrderText($('#orderText').value);
-    const step1wb = writeStep1(allrows);
-    const step2wb = writeStep2(merged, unresolved, order);
-    const step3wb = writeStep3(merged, dict.extras, order);
-    const dictwb  = writeDict(mapping, dict.extras, order);
-    mkDL(step1wb, 'Step1_全データ一覧.xlsx');
-    mkDL(step2wb, 'Step2_集計草案.xlsx');
-    mkDL(step3wb, 'Step3_数量表.xlsx');
-    mkDL(dictwb,  'mapping_dict.xlsx');
+    const qtywb  = writeQuantityTable(merged, dict.extras, order);
+    const dictwb = writeDict(mapping, dict.extras, order);
 
-    // クリップボード用TSV (Step3の作業シートを貼り付け用に)
+    // ファイル名にタイムスタンプ
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}` +
+               `${pad(now.getHours())}${pad(now.getMinutes())}`;
+    const qtyName = `数量表_${ts}.xlsx`;
+
+    mkDL(qtywb,  qtyName);
+    mkDL(dictwb, 'mapping_dict.xlsx');
+
+    // クリップボード用TSV (数量表シートを貼り付け用に)
     window._lastMerged = merged;
     window._lastExtras = dict.extras;
     window._lastUnresolved = unresolved;
-    mkCopy(bookSheetToTSV(step3wb, '作業シート'), 'Step3作業シート');
-    mkCopy(bookSheetToTSV(step3wb, '4-1_工事総括数量表'), '4-1(二段組)');
-    mkCopy(bookSheetToTSV(step2wb, '集計草案'), 'Step2集計草案');
+    mkCopy(bookSheetToTSV(qtywb, '数量表'), '数量表');
 
     // プレビュー (両ビューを用意してサブタブで切替)
     renderSummary(mergedRaw, mode, order);
