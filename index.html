@@ -228,6 +228,76 @@
     color:var(--muted); font-size:11px; text-align:right;
   }
 
+  /* --- 説明書: 目次サイドバー --- */
+  .modal-panel.manual {
+    max-width:980px; padding:24px 0 18px 0;
+  }
+  .manual-layout { display:flex; gap:0; align-items:stretch; min-height:60vh; }
+  .manual-toc {
+    width:200px; flex-shrink:0;
+    border-right:1px solid var(--border);
+    padding:0 14px 0 24px; font-size:12px;
+    position:sticky; top:0; align-self:flex-start; max-height:78vh; overflow-y:auto;
+  }
+  .manual-toc h4 {
+    margin:0 0 8px 0; font-size:11px; color:var(--muted);
+    letter-spacing:.1em; text-transform:uppercase;
+  }
+  .manual-toc ol {
+    list-style:none; padding:0; margin:0;
+    counter-reset:toc;
+  }
+  .manual-toc li { margin:2px 0; counter-increment:toc; }
+  .manual-toc a {
+    display:block; padding:4px 8px; border-radius:4px;
+    color:var(--muted); text-decoration:none; font-size:12px;
+    border-left:2px solid transparent;
+  }
+  .manual-toc a::before { content:counter(toc) ". "; color:var(--border); margin-right:4px; }
+  .manual-toc a:hover { color:var(--fg); background:var(--panel2); }
+  .manual-toc a.active { color:var(--accent); border-left-color:var(--accent); background:var(--panel2); }
+  .manual-content {
+    flex:1; padding:0 28px 0 24px;
+    overflow-y:auto; max-height:78vh; scroll-behavior:smooth;
+  }
+  .manual-content h2 {
+    margin:0 0 4px 0; padding:0; border:0; font-size:20px;
+  }
+  .manual-content .subtitle {
+    margin:0 0 18px 0; color:var(--muted); font-size:12px;
+  }
+  .manual-content section {
+    margin:14px 0 22px 0; scroll-margin-top:8px;
+  }
+  .manual-content section h3 {
+    margin:0 0 10px 0; padding-bottom:6px;
+    border-bottom:1px solid var(--border); color:var(--accent);
+    font-size:15px; letter-spacing:.03em;
+  }
+  .manual-content section h3::before { content:""; }
+  .manual-content section h4 {
+    margin:14px 0 4px 0; font-size:13px; color:var(--fg);
+    letter-spacing:.02em;
+  }
+  .manual-content .note {
+    background:rgba(79,179,255,.06); border-left:3px solid var(--accent);
+    padding:8px 12px; margin:8px 0; font-size:12px; border-radius:0 4px 4px 0;
+  }
+  .manual-content .warn {
+    background:rgba(210,153,34,.08); border-left:3px solid var(--warn);
+    padding:8px 12px; margin:8px 0; font-size:12px; border-radius:0 4px 4px 0;
+  }
+  .manual-content .err {
+    background:rgba(248,81,73,.07); border-left:3px solid var(--err);
+    padding:8px 12px; margin:8px 0; font-size:12px; border-radius:0 4px 4px 0;
+  }
+  .faq dt {
+    margin-top:10px; color:var(--accent); font-weight:600; font-size:13px;
+  }
+  .faq dt::before { content:"Q. "; color:var(--muted); }
+  .faq dd { margin:4px 0 0 0; padding-left:0; color:var(--fg); font-size:12.5px; line-height:1.65; }
+  .faq dd::before { content:"A. "; color:var(--muted); margin-right:2px; }
+
   /* --- 数量表エディタ (除外/グループ化) --- */
   .editbar {
     position:sticky; top:0; z-index:5;
@@ -292,98 +362,281 @@
     データはブラウザ内でのみ処理され、外部送信されません。
   </p>
 
-  <!-- 取説モーダル -->
+  <!-- 取説モーダル: 同梱の説明書 -->
   <div class="modal" id="helpModal" hidden>
     <div class="modal-backdrop" data-close></div>
-    <div class="modal-panel">
+    <div class="modal-panel manual">
       <button class="modal-close" data-close aria-label="閉じる">×</button>
-      <h2>取扱説明</h2>
-      <section>
-        <h3>ざっくり使い方</h3>
-        <ol>
-          <li>画面上部の<b>大きな箱</b>に、樹プロパティCSV3本 + 辞書<code>mapping_dict.xlsx</code>をまとめてD&amp;D。<br>
-             ファイル名で自動振り分け: <code>樹プロパティ設定_アンテナ</code> / <code>ケーブル</code> / <code>機器個別要素なし</code> → 各スロット。<code>.xlsx</code> → 辞書。</li>
-          <li>オプション調整 (モード/桃1/並び順)。</li>
-          <li><b>[実行]</b> → xlsxダウンロード + TSVコピー + プレビュー。</li>
-        </ol>
-      </section>
-      <section>
-        <h3>色ルール (CSVの「線色」列)</h3>
-        <table class="help-tbl">
-          <tr><th>色</th><th>意味</th><th>既定</th></tr>
-          <tr><td>赤1</td><td>新設</td><td>集計</td></tr>
-          <tr><td>青1</td><td>撤去</td><td>集計</td></tr>
-          <tr><td>黒</td><td>既設</td><td>除外</td></tr>
-          <tr><td>桃1</td><td>他社</td><td>除外 (チェックで含められる)</td></tr>
-        </table>
-      </section>
-      <section>
-        <h3>モード</h3>
-        <ul>
-          <li><b>集計モード</b> (既定): セクタ語尾を検出し <code>SAMPLE-ANT-01</code> ×3 / 記事欄=<code>SecA,B,C</code> に畳む。</li>
-          <li><b>一覧モード</b>: 機器表示名ごとに別行 (<code>Asec/Bsec/Csec</code> を保持)。</li>
-        </ul>
-        <p>セクタ検出対象の語尾:<br>
-        ① 共通: <code>Asec</code> / <code>SecA</code> / <code>Sec-B</code> / <code>sec.A</code> 等<br>
-        ② RFM/RRH/RRU/ANT を含む名称: <code>-A</code> <code>-B</code> <code>-C</code> (末尾単独文字、A/B/C限定)
-        </p>
-        <p>プレビューは「修正有 / 修正無」のサブタブで両方同時に確認可。</p>
-      </section>
-      <section>
-        <h3>辞書 <code>mapping_dict.xlsx</code></h3>
-        <p><b>[mapping] シート</b></p>
-        <table class="help-tbl">
-          <tr><th>列</th><th>例</th></tr>
-          <tr><td>カテゴリ</td><td><code>antenna</code>/<code>cable</code>/<code>equipment</code></td></tr>
-          <tr><td>マッチキー</td><td><code>SAMPLE-CBL-50</code> / <code>設備=給電線</code></td></tr>
-          <tr><td>表示名</td><td><code>{model},{len}m,({conn1}/{conn2})</code></td></tr>
-          <tr><td>単位/記事欄/除外フラグ</td><td><code>本</code> / 任意 / <code>除外</code></td></tr>
-        </table>
-        <p>マッチ順: <b>機器表示名 → 型式 → 設備=&lt;設備種別名称&gt;</b>。<br>
-        トークン: <code>{len}</code> <code>{conn1}</code> <code>{conn2}</code> <code>{model}</code>。</p>
-        <p><b>[extras] シート</b>: CSVに無いが毎回数量表末尾に加算したい品目 (架台・HVIE等)。</p>
-        <p><b>[order] シート</b>: 設備種別名称の並び順 (1列目、上から優先)。UI「並び順」テキストエリアと連動。</p>
-      </section>
-      <section>
-        <h3>出力ファイル</h3>
-        <ul>
-          <li><code>数量表_yyyymmddhhmm.xlsx</code>: 単一シート (設備種別名称/項目/工種/単位/合計/記事欄)。設備種別+工種の境界に空行。</li>
-          <li><code>mapping_dict.xlsx</code>: 未登録品目が追記された更新版</li>
-          <li>📋ボタン: 既存Excelテンプレに直貼り用のTSVコピー</li>
-        </ul>
-      </section>
-      <section>
-        <h3>学習の回し方</h3>
-        <ol>
-          <li>画面下の「未登録一覧」タブで黄色行を確認。</li>
-          <li>辞書 <code>mapping</code> シートに転記 (表示名/単位/記事欄/除外フラグ)。</li>
-          <li>次回以降は黄色が消え、同じ品目は自動整形。</li>
-          <li>辞書xlsxは支店内共有推奨 (全員の知見が蓄積)。</li>
-        </ol>
-      </section>
-      <section>
-        <h3>画面で直接 辞書を編集 (除外 / グループ統合)</h3>
-        <p>「集計プレビュー」の行操作は即座に <code>mapping_dict.xlsx</code> / <code>数量表_*.xlsx</code> のDLリンクに反映。</p>
-        <table class="help-tbl">
-          <tr><th>操作</th><th>方法</th><th>結果</th></tr>
-          <tr><td>✕ 除外</td><td>行末の✕をチェック</td><td>機器表示名/型式に <code>除外フラグ=除外</code>。プレビューは薄字+取消線、xlsxから消える。チェック解除で復活。</td></tr>
-          <tr><td>新規グループ作成</td><td>☑で複数行選択 → 編集バーで「+ 新規グループ」 + 表示名入力 → <b>⚙ 統合</b></td><td>選択行の全キーを同じ表示名にぶら下げ、合算して1行に集約。色バッジが付く。</td></tr>
-          <tr><td>既存グループに追加</td><td>☑で行選択 → ドロップダウンで既存グループを選ぶ → <b>⚙ 統合</b></td><td>選択した既存グループに合流。</td></tr>
-          <tr><td>D&amp;D合流</td><td>行を別の行へドラッグ&ドロップ</td><td>ドロップ先の表示名にソース側のキーを合流 (同一カテゴリのみ可)。</td></tr>
-          <tr><td>グループ解除</td><td>☑選択 → <b>⟲ 選択行をグループ解除</b></td><td>選択行の表示名をmappingからクリア (テンプレート/未マッチ状態に戻す)。</td></tr>
-        </table>
-        <p>グループに属する行は項目セルの左に色バッジが表示される (例: <span class="gtag"><span class="gdot" style="background:#e44"></span>Radio2271(B28A)</span>)。</p>
-        <p>📥 <code>mapping_dict.xlsx</code> を保存すれば、次回以降も同じ運用が辞書ファイルに記録される。</p>
-      </section>
-      <section>
-        <h3>情報漏洩対策</h3>
-        <ul>
-          <li>処理はブラウザ内のみ (外部送信なし)。</li>
-          <li>CDN依存: PapaParse / SheetJS。完全オフライン化したい場合は両ライブラリをローカル同梱に。</li>
-          <li>GitHub公開時は <code>.gitignore</code> で辞書・CSV・Step出力を除外済。</li>
-        </ul>
-      </section>
-      <p class="help-foot">このモーダルは <kbd>Esc</kbd> / 背景クリック / 右上× で閉じる。</p>
+      <div class="manual-layout">
+        <!-- 目次 -->
+        <nav class="manual-toc" id="manualToc">
+          <h4>目次</h4>
+          <ol>
+            <li><a href="#m-quick" class="active">クイックスタート</a></li>
+            <li><a href="#m-files">入力ファイル仕様</a></li>
+            <li><a href="#m-color">色ルール (線色)</a></li>
+            <li><a href="#m-mode">モード / オプション</a></li>
+            <li><a href="#m-dict">辞書 mapping_dict.xlsx</a></li>
+            <li><a href="#m-row">行操作 (除外 / 統合 / D&amp;D)</a></li>
+            <li><a href="#m-output">出力ファイル</a></li>
+            <li><a href="#m-workflow">運用フロー (学習の回し方)</a></li>
+            <li><a href="#m-faq">FAQ</a></li>
+            <li><a href="#m-trouble">トラブルシューティング</a></li>
+            <li><a href="#m-limit">制限事項</a></li>
+            <li><a href="#m-sec">情報漏洩対策</a></li>
+            <li><a href="#m-glossary">用語集</a></li>
+            <li><a href="#m-shortcut">ショートカット</a></li>
+            <li><a href="#m-license">ライセンス / 履歴</a></li>
+          </ol>
+        </nav>
+
+        <!-- 本文 -->
+        <div class="manual-content" id="manualContent">
+          <h2>樹抽出 数量表ジェネレータ 説明書</h2>
+          <p class="subtitle">v0.1 · ローカル処理のみ · 外部送信なし</p>
+
+          <section id="m-quick">
+            <h3>1. クイックスタート</h3>
+            <ol>
+              <li>画面上部の<b>大きな箱</b>に、樹プロパティCSV3本 + 辞書 <code>mapping_dict.xlsx</code> をまとめてドラッグ&amp;ドロップ。ファイル名で自動振り分け。</li>
+              <li>必要ならオプションを調整 (モード/桃1/並び順)。</li>
+              <li><b>[実行]</b> ボタンを押す。</li>
+              <li>右に出る <code>↓ 数量表_yyyymmddhhmm.xlsx</code> をクリックでDL、<code>📋 数量表をコピー</code> でTSVを既存Excelテンプレに直貼り。</li>
+              <li>プレビューで行操作 (除外/統合) すれば、その場でDLボタンに最新版が反映される。</li>
+            </ol>
+            <div class="note"><b>1分でわかる:</b> CSVを投げる → 実行 → xlsxとTSVが出る。辞書は学習する。</div>
+          </section>
+
+          <section id="m-files">
+            <h3>2. 入力ファイル仕様</h3>
+            <h4>2.1 樹プロパティCSV (3本)</h4>
+            <table class="help-tbl">
+              <tr><th>種別</th><th>ファイル名キーワード</th><th>主要列</th></tr>
+              <tr><td>antenna</td><td><code>樹プロパティ設定_アンテナ</code></td><td>機器表示名 / 型式 / 設備種別名称 / 線色 / 設置セクタ</td></tr>
+              <tr><td>cable</td><td><code>樹プロパティ設定_ケーブル</code></td><td>機器表示名 / 型式 / 設備種別名称 / 線色 / ケーブル長 / 端子1_コネクタ種別 / 端子1_コネクタ性別 / 端子2_…</td></tr>
+              <tr><td>equipment</td><td><code>樹プロパティ設定_機器個別要素なし</code></td><td>機器表示名 / 型式 / 設備種別名称 / 線色</td></tr>
+            </table>
+            <p>エンコーディングは <b>UTF-8 (BOM可)</b>。Shift-JIS は事前に変換が必要。CSV先頭行は補助ヘッダ (樹図ID/番号)、2行目がカラム名。スクリプトが自動でスキップする。</p>
+
+            <h4>2.2 辞書xlsx (任意。無くても動く)</h4>
+            <p><code>mapping_dict.xlsx</code> ファイル名は固定ではないが、習慣としてこの名前を使う。3シート構成 (詳細は §5)。</p>
+          </section>
+
+          <section id="m-color">
+            <h3>3. 色ルール (CSVの「線色」列)</h3>
+            <table class="help-tbl">
+              <tr><th>色</th><th>意味</th><th>既定動作</th></tr>
+              <tr><td>赤1</td><td>新設</td><td>集計対象</td></tr>
+              <tr><td>青1</td><td>撤去</td><td>集計対象</td></tr>
+              <tr><td>黒</td><td>既設</td><td>除外</td></tr>
+              <tr><td>桃1</td><td>他社</td><td>除外 (オプション <code>桃1も含める</code> で集計に乗せられる)</td></tr>
+            </table>
+            <p>つまり「赤・青のみ拾い、黒は無視、桃は基本無視」。これは樹図の運用慣習に整合させている。</p>
+          </section>
+
+          <section id="m-mode">
+            <h3>4. モード / オプション</h3>
+            <h4>4.1 モード</h4>
+            <table class="help-tbl">
+              <tr><th>モード</th><th>動作</th><th>例</th></tr>
+              <tr><td>集計モード (既定)</td><td>セクタ語尾を検出して畳む</td><td><code>SAMPLE-ANT-01 Asec/Bsec/Csec</code> 3行 → 1行 (合計3 / 記事欄=<code>SecA,B,C</code>)</td></tr>
+              <tr><td>一覧モード</td><td>機器表示名ごとに別行</td><td><code>Asec/Bsec/Csec</code> をそのまま3行で出す</td></tr>
+            </table>
+            <p>プレビューは <b>修正有 (Sec統合) / 修正無 (一覧)</b> のサブタブで両方を同時に確認可。</p>
+
+            <h4>4.2 セクタ検出パターン (集計モード時)</h4>
+            <ol>
+              <li>共通: <code>&lt;base&gt; Asec</code> / <code>&lt;base&gt;_SecA</code> / <code>&lt;base&gt;-Sec-B</code> / <code>&lt;base&gt; sec.A</code></li>
+              <li><b>RFM/RRH/RRU/ANT を名称に含む場合のみ</b>: <code>&lt;base&gt;-A</code> / <code>&lt;base&gt; B</code> / <code>&lt;base&gt;_C</code> (A/B/C限定、誤爆防止)</li>
+            </ol>
+            <div class="warn">4セクタ以上 (D, E, F…) が出てきた場合は <code>parseSector</code> 内の <code>[A-C]</code> を拡張する必要がある。</div>
+
+            <h4>4.3 並び順 (order)</h4>
+            <p>テキストエリアに設備種別名称を1行ずつ書く。辞書 <code>order</code> シートからも自動取り込み可。リスト外は末尾。</p>
+
+            <h4>4.4 オプション</h4>
+            <ul>
+              <li><b>桃1 (他社) も含める</b>: 桃1線色の品目を集計に乗せる。</li>
+              <li><b>未登録品目を辞書に自動追記</b>: 辞書に無い品目が出てきたら、空テンプレートで辞書末尾に push。後で「表示名」「単位」を埋めれば次回から認識される。</li>
+            </ul>
+          </section>
+
+          <section id="m-dict">
+            <h3>5. 辞書 <code>mapping_dict.xlsx</code></h3>
+            <h4>5.1 mapping シート (本体)</h4>
+            <table class="help-tbl">
+              <tr><th>列</th><th>意味</th><th>例</th></tr>
+              <tr><td>カテゴリ</td><td>3種から選ぶ</td><td><code>antenna</code> / <code>cable</code> / <code>equipment</code></td></tr>
+              <tr><td>マッチキー</td><td>機器表示名 or 型式 or <code>設備=&lt;設備種別名称&gt;</code></td><td><code>SAMPLE-CBL-50</code> / <code>設備=給電線</code></td></tr>
+              <tr><td>表示名</td><td>出力時の項目名。トークン展開可</td><td><code>{model},{len}m,({conn1}/{conn2})</code></td></tr>
+              <tr><td>単位</td><td>合計の単位</td><td><code>本</code> / <code>台</code> / <code>個</code></td></tr>
+              <tr><td>記事欄</td><td>固定文言 (任意)</td><td><code>他社</code> など</td></tr>
+              <tr><td>除外フラグ</td><td><code>除外</code> と書けば集計から外す</td><td>空 or <code>除外</code></td></tr>
+              <tr><td>出現回数</td><td>実行時に自動更新される統計列</td><td>(自動)</td></tr>
+            </table>
+            <p><b>マッチ順</b>: 機器表示名 → 型式 → 設備=&lt;設備種別名称&gt;。最初にヒットしたものが採用される。<br>
+            <b>表示名トークン</b>: <code>{len}</code> (ケーブル長) / <code>{conn1}</code> <code>{conn2}</code> (端子コネクタ) / <code>{model}</code> (型式)。</p>
+
+            <h4>5.2 extras シート (固定追加品目)</h4>
+            <p>CSVに乗ってこないが毎回末尾に足したい品目 (架台・HVIE等) を書いておく。列: <code>工種 / 項目 / 単位 / 合計 / 記事欄</code>。</p>
+
+            <h4>5.3 order シート (並び順)</h4>
+            <p>設備種別名称を1列目に上から優先順で書く。UIの並び順テキストエリアと相互変換される。</p>
+          </section>
+
+          <section id="m-row">
+            <h3>6. 行操作 (除外 / 統合 / D&amp;D)</h3>
+            <p>「集計プレビュー」の行操作は即座に <code>mapping_dict.xlsx</code> / <code>数量表_*.xlsx</code> のDLリンクに反映される (再生成)。</p>
+            <table class="help-tbl">
+              <tr><th>操作</th><th>方法</th><th>結果</th></tr>
+              <tr><td>✕ 除外</td><td>行末の✕をチェック</td><td>機器表示名/型式に <code>除外フラグ=除外</code>。プレビューは薄字+取消線、xlsxから消える。チェック解除で復活。</td></tr>
+              <tr><td>新規グループ作成</td><td>☑で複数行選択 → 編集バーで「+ 新規グループ」+ 表示名入力 → <b>⚙ 統合</b></td><td>選択行の全キーを同じ表示名にぶら下げ、合算して1行に集約。色バッジが付く。</td></tr>
+              <tr><td>既存グループに追加</td><td>☑で行選択 → ドロップダウンで既存グループを選ぶ → <b>⚙ 統合</b></td><td>選択した既存グループに合流。</td></tr>
+              <tr><td>D&amp;D合流</td><td>行を別の行へドラッグ&amp;ドロップ</td><td>ドロップ先の表示名にソース側のキーを合流 (同一カテゴリのみ可)。</td></tr>
+              <tr><td>グループ解除</td><td>☑選択 → <b>⟲ 選択行をグループ解除</b></td><td>選択行の表示名をmappingからクリア (テンプレート/未マッチ状態に戻す)。</td></tr>
+            </table>
+            <p>グループに属する行は項目セルの左に色バッジが表示される (例: <span class="gtag"><span class="gdot" style="background:hsl(40,55%,55%)"></span>Radio2271(B28A)</span>)。色は表示名のハッシュで一意に決まる。</p>
+            <div class="note">操作の反映先は<b>state内のmapping</b>。<code>↓ mapping_dict.xlsx</code> を押してDLしないと、ファイルには残らない。次回起動時に再読み込みすれば運用継続。</div>
+          </section>
+
+          <section id="m-output">
+            <h3>7. 出力ファイル</h3>
+            <ul>
+              <li><code>数量表_yyyymmddhhmm.xlsx</code>: 単一シート (列: 設備種別名称 / 項目 / 工種 / 単位 / 合計 / 記事欄)。設備種別+工種の境界に空行。</li>
+              <li><code>mapping_dict.xlsx</code>: 未登録品目が自動追記された更新版 (autoLearn有効時)、および行操作の結果が反映された辞書。</li>
+              <li><code>📋 数量表をコピー</code>: 既存Excelテンプレに貼り付け用のTSV。</li>
+            </ul>
+          </section>
+
+          <section id="m-workflow">
+            <h3>8. 運用フロー (学習の回し方)</h3>
+            <ol>
+              <li>初回: <code>mapping_dict.xlsx</code> 無しで実行 → 全行が「未登録」黄色で出力。</li>
+              <li>プレビューで行操作 (除外/統合)、または「未登録一覧」タブで黄色行を見ながら、辞書に手で書き込む。</li>
+              <li>更新後の <code>mapping_dict.xlsx</code> をDLして保存。</li>
+              <li>次回からは同じ辞書をD&amp;Dすれば、同じ品目は自動整形される。</li>
+              <li>辞書は <b>支店内共有推奨</b>。属人化を防ぐ。</li>
+            </ol>
+          </section>
+
+          <section id="m-faq">
+            <h3>9. FAQ</h3>
+            <dl class="faq">
+              <dt>辞書なしでも動く?</dt>
+              <dd>動く。全品目「未登録」になるだけ。実用にするなら辞書は必要。</dd>
+
+              <dt>ファイル名に「アンテナ」「ケーブル」「機器」が無いCSVは?</dt>
+              <dd>各スロットに手動でD&amp;D or 参照ボタンで指定できる。バルク投下した場合は「種別不明」で弾かれる (ログ確認)。</dd>
+
+              <dt>4セクタ以上 (D, E, F…) はどうする?</dt>
+              <dd>現状の正規表現は <code>[A-C]</code> 限定。<code>parseSector</code> 関数を拡張する必要がある (誤検出回避の意図的制限)。</dd>
+
+              <dt>桃1 (他社) を集計に乗せたい</dt>
+              <dd>上部オプションの <code>桃1 (他社) も含める</code> にチェック。</dd>
+
+              <dt>同じ設備種別名称内の複数行をひとつにまとめて合算したい (例: Radio2271(B8B)とRadio2271(B28A))</dt>
+              <dd>2行を ☑選択 → 表示名 <code>Radio2271(B28A)</code> 入力 → <b>⚙ 統合</b>。あるいは片方の行をもう片方にD&amp;D。</dd>
+
+              <dt>テンプレート表示名 (<code>{model},{len}m</code>) を使うと合算されない</dt>
+              <dd>意図的。長さが違うと別行になる。完全固定の文字列表示名で登録すれば全部合算される。</dd>
+
+              <dt>未登録品目を辞書に自動追記したくない</dt>
+              <dd>オプションの <code>未登録品目を辞書に自動追記</code> のチェックを外す。</dd>
+
+              <dt>処理がブラウザ内で完結しているか確かめたい</dt>
+              <dd>ブラウザの開発者ツール → Network タブを開いて実行 → CDN (jsdelivr) 以外への通信が無いことを確認。</dd>
+
+              <dt>完全オフラインで使いたい</dt>
+              <dd>PapaParse と SheetJS をローカルに置いて <code>&lt;script src=&gt;</code> を書き換える。</dd>
+
+              <dt>セル装飾 (色塗り) も欲しい</dt>
+              <dd>SheetJS 0.18.5 (CDN版) は最小書式のみ。色塗りは出力後にExcel側で。</dd>
+            </dl>
+          </section>
+
+          <section id="m-trouble">
+            <h3>10. トラブルシューティング</h3>
+            <h4>実行ボタンが押せない</h4>
+            <div class="err">CSVが1本も読み込まれていない。少なくとも1つのCSVスロットにファイルを入れる。</div>
+
+            <h4>「未登録一覧」が大量に黄色</h4>
+            <div class="warn">辞書が空 or その現場で初めて出る品目が多い。辞書未指定で動かしたか、辞書の <code>マッチキー</code> が機器表示名/型式と一致していない。CSVのキー文字列をそのままコピペする。</div>
+
+            <h4>除外チェックが効かない / 反応が鈍い</h4>
+            <p>ブラウザのキャッシュ。Ctrl+F5でハードリロード。それでも直らない場合はコンソール (F12) のエラーを確認。</p>
+
+            <h4>D&amp;Dで合流できない</h4>
+            <p>カテゴリ不一致。アンテナ・ケーブル・機器は混合不可。ログに <code>D&amp;D: カテゴリ不一致</code> が出る。</p>
+
+            <h4>「数量表をコピー」が空</h4>
+            <p>クリップボードAPIの権限。HTTPS or file:// 経由でなくHTTP経由だとブロックされることがある。<br>
+            また、ブラウザの設定でクリップボード許可を求められた場合は許可する。</p>
+
+            <h4>Shift-JIS のCSVを読ませたら文字化け</h4>
+            <p>CSVをUTF-8 (BOM可) に変換してから投入。Excelで「名前を付けて保存 → UTF-8 CSV」が手早い。</p>
+
+            <h4>古い辞書を使ったら品目名が違う</h4>
+            <p>辞書 <code>mapping</code> シートの <code>表示名</code> を更新。古いキャッシュが残るブラウザは Ctrl+F5。</p>
+          </section>
+
+          <section id="m-limit">
+            <h3>11. 制限事項</h3>
+            <ul>
+              <li>処理は <code>FileReader</code> 性能依存。数万行超でやや重い。</li>
+              <li>SheetJS (CDN版) のxlsx書式は最小限。色塗り・条件付き書式は反映されない。</li>
+              <li>CSVは UTF-8 想定 (BOM可)。Shift-JIS は要変換。</li>
+              <li>セクタ検出は A/B/C 限定。D以降は要コード拡張。</li>
+              <li>ブラウザストレージ未使用。リロードで状態消える (辞書DLで永続化)。</li>
+            </ul>
+          </section>
+
+          <section id="m-sec">
+            <h3>12. 情報漏洩対策</h3>
+            <ul>
+              <li>処理はすべてブラウザ内のみ。外部送信なし。</li>
+              <li>CDN依存: PapaParse / SheetJS (jsdelivr.net)。完全オフライン化したい場合は両ライブラリをローカル同梱。</li>
+              <li>GitHub Pages 公開時は <code>.gitignore</code> で実データ (辞書/CSV/Step出力) を除外済み。</li>
+              <li>サンプル辞書・サンプルCSVは同梱しない (機器型式・局名がSB固有のため)。</li>
+              <li>ローカル動作確認は <code>file://</code> で直接 <code>index.html</code> を開けばOK。</li>
+            </ul>
+          </section>
+
+          <section id="m-glossary">
+            <h3>13. 用語集</h3>
+            <table class="help-tbl">
+              <tr><th>用語</th><th>意味</th></tr>
+              <tr><td>樹</td><td>SB OPEN-UIにおける基地局構成データの呼称 (ツリー構造)</td></tr>
+              <tr><td>機器表示名</td><td>樹図上の表示ラベル。同じ型式でも現場ごとに変わり得る</td></tr>
+              <tr><td>型式</td><td>機器のメーカー型式名 (構造上の識別子)</td></tr>
+              <tr><td>設備種別名称</td><td>機器の分類 (アンテナ / RRU / 給電線 等)</td></tr>
+              <tr><td>線色</td><td>樹図上の色付け (赤1=新設 / 青1=撤去 / 黒=既設 / 桃1=他社)</td></tr>
+              <tr><td>工種</td><td>新設 / 撤去 (出力時の主な分類)</td></tr>
+              <tr><td>マッチキー</td><td>辞書が機器を識別する文字列 (機器表示名 / 型式 / 設備= の3形式)</td></tr>
+              <tr><td>グループ</td><td>同一表示名にぶら下がる複数マッチキーの集合 (合算対象)</td></tr>
+            </table>
+          </section>
+
+          <section id="m-shortcut">
+            <h3>14. ショートカット</h3>
+            <ul>
+              <li><kbd>Esc</kbd>: モーダルを閉じる</li>
+              <li><kbd>Ctrl</kbd> + <kbd>F5</kbd>: ハードリロード (キャッシュクリア)</li>
+              <li><kbd>F12</kbd>: ブラウザの開発者ツール (エラー確認用)</li>
+            </ul>
+          </section>
+
+          <section id="m-license">
+            <h3>15. ライセンス / 履歴</h3>
+            <p>社内ツール。外部公開は静的HTMLのみ (実データ・辞書は <code>.gitignore</code> 除外)。<br>
+            依存ライブラリ: PapaParse (MIT) / SheetJS (Apache 2.0)。</p>
+            <h4>変更履歴</h4>
+            <ul>
+              <li>v0.1: 初版。CSV3本入力・辞書連携・数量表単一シート出力・行操作 (除外/グループ統合) ・D&amp;Dグループ合流。</li>
+            </ul>
+            <p class="help-foot">このモーダルは <kbd>Esc</kbd> / 背景クリック / 右上× で閉じる。</p>
+          </section>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -561,20 +814,61 @@ $$('.tabs button').forEach(b => {
   });
 });
 
-// 取説モーダル
+// 取説モーダル: 目次 + 本文スクロール連動
 (function bindHelpModal() {
   const modal = $('#helpModal');
+  const toc = $('#manualToc');
+  const content = $('#manualContent');
+
+  function syncTocActive() {
+    if (!content || !toc) return;
+    const secs = Array.from(content.querySelectorAll('section[id]'));
+    if (!secs.length) return;
+    const top = content.scrollTop;
+    let active = secs[0];
+    for (const s of secs) {
+      if (s.offsetTop - 30 <= top) active = s;
+      else break;
+    }
+    toc.querySelectorAll('a').forEach(a =>
+      a.classList.toggle('active', a.getAttribute('href') === `#${active.id}`)
+    );
+  }
+
   const open = () => {
     modal.hidden = false;
-    // パネル先頭にスクロール
-    const panel = modal.querySelector('.modal-panel');
-    if (panel) panel.scrollTop = 0;
+    if (content) content.scrollTop = 0;
+    syncTocActive();
   };
   const close = () => { modal.hidden = true; };
   $('#helpBtn').addEventListener('click', open);
   modal.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', close));
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !modal.hidden) close();
+  });
+
+  if (!toc || !content) return;
+
+  // 目次クリック → 該当セクションへ
+  toc.addEventListener('click', e => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a) return;
+    e.preventDefault();
+    const id = a.getAttribute('href').slice(1);
+    const tgt = content.querySelector(`#${CSS.escape(id)}`);
+    if (tgt) {
+      content.scrollTo({ top: tgt.offsetTop - 8, behavior: 'smooth' });
+      toc.querySelectorAll('a').forEach(x => x.classList.toggle('active', x === a));
+    }
+  });
+
+  // 本文スクロールで目次ハイライト
+  content.addEventListener('scroll', () => {
+    if (content._tocRaf) return;
+    content._tocRaf = requestAnimationFrame(() => {
+      content._tocRaf = null;
+      syncTocActive();
+    });
   });
 })();
 
