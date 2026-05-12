@@ -227,6 +227,59 @@
     margin-top:22px; padding-top:10px; border-top:1px solid var(--border);
     color:var(--muted); font-size:11px; text-align:right;
   }
+
+  /* --- 数量表エディタ (除外/グループ化) --- */
+  .editbar {
+    position:sticky; top:0; z-index:5;
+    margin:8px 0 6px 0; padding:8px 12px;
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:6px; display:flex; gap:10px; align-items:center;
+    font-size:12px; flex-wrap:wrap;
+  }
+  .editbar.dirty { border-color:var(--warn); }
+  .editbar .count { font-family:var(--mono); color:var(--accent); }
+  .editbar input[type=text] {
+    background:var(--panel2); color:var(--fg); border:1px solid var(--border);
+    border-radius:4px; padding:4px 8px; font-size:12px;
+    font-family:var(--mono); min-width:220px;
+  }
+  .editbar button.ghost { padding:4px 10px; font-size:12px; }
+  .editbar .editbar-note { color:var(--muted); margin-left:auto; }
+  table.summary td.act, table.summary th.act {
+    text-align:center; padding:4px 6px; width:36px;
+  }
+  table.summary tr.row-excluded td {
+    opacity:.35; text-decoration:line-through;
+  }
+  table.summary tr.row-excluded td.act { opacity:1; text-decoration:none; }
+  table.summary tr.row-selected td { background:rgba(79,179,255,.10); }
+  table.summary input[type=checkbox] { accent-color:var(--accent); cursor:pointer; }
+
+  /* --- グループ可視化 / D&D --- */
+  .gtag {
+    display:inline-block; padding:1px 8px; margin-right:6px;
+    border-radius:10px; font-size:10.5px; font-family:var(--mono);
+    border:1px solid var(--border); white-space:nowrap;
+  }
+  .gtag .gdot {
+    display:inline-block; width:8px; height:8px; border-radius:50%;
+    margin-right:5px; vertical-align:middle;
+  }
+  table.summary tr.row-group td { background:rgba(79,179,255,.04); }
+  table.summary tr.dragsrc { opacity:.5; }
+  table.summary tr.droptgt td { box-shadow:inset 0 0 0 2px var(--accent); }
+  table.summary tr[draggable="true"] td:first-child {
+    cursor:grab;
+  }
+  table.summary tr[draggable="true"]:active td:first-child {
+    cursor:grabbing;
+  }
+  .editbar select {
+    background:var(--panel2); color:var(--fg); border:1px solid var(--border);
+    border-radius:4px; padding:4px 8px; font-size:12px; font-family:var(--mono);
+    min-width:180px; cursor:pointer;
+  }
+  .editbar .ungroup-btn { color:var(--warn); }
 </style>
 </head>
 <body>
@@ -307,6 +360,20 @@
           <li>次回以降は黄色が消え、同じ品目は自動整形。</li>
           <li>辞書xlsxは支店内共有推奨 (全員の知見が蓄積)。</li>
         </ol>
+      </section>
+      <section>
+        <h3>画面で直接 辞書を編集 (除外 / グループ統合)</h3>
+        <p>「集計プレビュー」の行操作は即座に <code>mapping_dict.xlsx</code> / <code>数量表_*.xlsx</code> のDLリンクに反映。</p>
+        <table class="help-tbl">
+          <tr><th>操作</th><th>方法</th><th>結果</th></tr>
+          <tr><td>✕ 除外</td><td>行末の✕をチェック</td><td>機器表示名/型式に <code>除外フラグ=除外</code>。プレビューは薄字+取消線、xlsxから消える。チェック解除で復活。</td></tr>
+          <tr><td>新規グループ作成</td><td>☑で複数行選択 → 編集バーで「+ 新規グループ」 + 表示名入力 → <b>⚙ 統合</b></td><td>選択行の全キーを同じ表示名にぶら下げ、合算して1行に集約。色バッジが付く。</td></tr>
+          <tr><td>既存グループに追加</td><td>☑で行選択 → ドロップダウンで既存グループを選ぶ → <b>⚙ 統合</b></td><td>選択した既存グループに合流。</td></tr>
+          <tr><td>D&amp;D合流</td><td>行を別の行へドラッグ&ドロップ</td><td>ドロップ先の表示名にソース側のキーを合流 (同一カテゴリのみ可)。</td></tr>
+          <tr><td>グループ解除</td><td>☑選択 → <b>⟲ 選択行をグループ解除</b></td><td>選択行の表示名をmappingからクリア (テンプレート/未マッチ状態に戻す)。</td></tr>
+        </table>
+        <p>グループに属する行は項目セルの左に色バッジが表示される (例: <span class="gtag"><span class="gdot" style="background:#e44"></span>Radio2271(B28A)</span>)。</p>
+        <p>📥 <code>mapping_dict.xlsx</code> を保存すれば、次回以降も同じ運用が辞書ファイルに記録される。</p>
       </section>
       <section>
         <h3>情報漏洩対策</h3>
@@ -873,6 +940,9 @@ function writeDict(mapping, extras, order) {
 // ============================================================
 // 実行
 // ============================================================
+// 中央state: 行操作 (除外/グループ化) を applyDict 再実行に反映するために保持
+window._S = null;
+
 $('#runBtn').addEventListener('click', async () => {
   const btn = $('#runBtn'); btn.disabled = true;
   $('#dls').innerHTML = ''; $('#tab-summary').innerHTML=''; $('#tab-unresolved').innerHTML='';
@@ -891,7 +961,6 @@ $('#runBtn').addEventListener('click', async () => {
     const dict = await readDict(slots.dict);
     if (slots.dict) {
       log('ok', `辞書: ${slots.dict.name} (mapping=${dict.mapping.length}, extras=${dict.extras.length}, order=${dict.order.length})`);
-      // orderシートがあって、UIテキストエリアが空なら自動反映
       if (dict.order.length && !$('#orderText').value.trim()) {
         $('#orderText').value = formatOrder(dict.order);
         log('ok', `並び順を辞書order シートから取り込み (${dict.order.length}件)`);
@@ -908,57 +977,23 @@ $('#runBtn').addEventListener('click', async () => {
     log('ok', `辞書ヒット: ${mergedRaw.filter(r=>r.辞書ヒット).length} / 未登録: ${unresolved.length}` +
             (added ? ` (辞書に${added}件追記)` : ''));
 
-    // モード適用
     const mode = $('#mode').value;
-    const merged = (mode === 'agg') ? collapseSectors(mergedRaw) : mergedRaw;
-    const collapsed = mergedRaw.length - merged.length;
-    log('ok', `モード: ${mode==='agg' ? `集計 (${collapsed}行をSec統合)` : '一覧'}`);
-
-    // 出力
-    const dls = $('#dls');
-    dls.innerHTML = '';
-    const mkDL = (wb, name) => {
-      const url = URL.createObjectURL(bookToBlob(wb));
-      const a = document.createElement('a');
-      a.href = url; a.download = name; a.textContent = `↓ ${name}`;
-      dls.appendChild(a);
-    };
-    const mkCopy = (tsv, label) => {
-      const b = document.createElement('button');
-      b.className = 'ghost'; b.textContent = `📋 ${label}をコピー`;
-      b.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(tsv);
-          b.textContent = `✓ コピー済`;
-          setTimeout(() => b.textContent = `📋 ${label}をコピー`, 1500);
-        } catch (e) {
-          log('err', `クリップボード: ${e.message}`);
-        }
-      });
-      dls.appendChild(b);
-    };
     const order = parseOrderText($('#orderText').value);
-    const qtywb  = writeQuantityTable(merged, dict.extras, order);
-    const dictwb = writeDict(mapping, dict.extras, order);
 
-    // ファイル名にタイムスタンプ
-    const now = new Date();
-    const pad = n => String(n).padStart(2,'0');
-    const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}` +
-               `${pad(now.getHours())}${pad(now.getMinutes())}`;
-    const qtyName = `数量表_${ts}.xlsx`;
+    // === state 保存: 行操作 (除外/統合) からの再ビルドに使う ===
+    window._S = {
+      agg,
+      mapping,            // 行操作で書き換える生 mapping
+      extras: dict.extras,
+      order,
+      mode,
+      mergedRaw,          // applyDict直後
+      unresolved,
+      selection: new Set(),
+      dirty: false,
+    };
 
-    mkDL(qtywb,  qtyName);
-    mkDL(dictwb, 'mapping_dict.xlsx');
-
-    // クリップボード用TSV (数量表シートを貼り付け用に)
-    window._lastMerged = merged;
-    window._lastExtras = dict.extras;
-    window._lastUnresolved = unresolved;
-    mkCopy(bookSheetToTSV(qtywb, '数量表'), '数量表');
-
-    // プレビュー (両ビューを用意してサブタブで切替)
-    renderSummary(mergedRaw, mode, order);
+    rebuildOutputs({ logHits:false });
     renderUnresolved(unresolved);
     $('#tabs').hidden = false;
     log('ok', '完了');
@@ -969,6 +1004,84 @@ $('#runBtn').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
+
+// ============================================================
+// 再ビルド: state.mapping を真実とし、agg から applyDict 再実行 → DL + プレビューを更新
+// ============================================================
+function rebuildOutputs() {
+  const S = window._S; if (!S) return;
+  const { merged: mergedRaw, mapping } = applyDict(S.agg, S.mapping, false);
+  S.mergedRaw = mergedRaw;
+  S.mapping = mapping;
+  rebuildDownloads();
+  renderSummary(mergedRaw, S.mode, S.order);
+}
+
+// DLボタンとTSVコピーだけ生成 (テーブル再描画なし)
+function rebuildDownloads() {
+  const S = window._S; if (!S) return;
+  const merged = (S.mode === 'agg') ? collapseSectors(S.mergedRaw) : S.mergedRaw;
+  const qtywb  = writeQuantityTable(merged, S.extras, S.order);
+  const dictwb = writeDict(S.mapping, S.extras, S.order);
+
+  const dls = $('#dls'); dls.innerHTML = '';
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const ts = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const qtyName = `数量表_${ts}.xlsx`;
+
+  const mkDL = (wb, name) => {
+    const url = URL.createObjectURL(bookToBlob(wb));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.textContent = `↓ ${name}`;
+    dls.appendChild(a);
+  };
+  const mkCopy = (tsv, label) => {
+    const b = document.createElement('button');
+    b.className = 'ghost'; b.textContent = `📋 ${label}をコピー`;
+    b.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(tsv);
+        b.textContent = `✓ コピー済`;
+        setTimeout(() => b.textContent = `📋 ${label}をコピー`, 1500);
+      } catch (e) { log('err', `クリップボード: ${e.message}`); }
+    });
+    dls.appendChild(b);
+  };
+  mkDL(qtywb,  qtyName);
+  mkDL(dictwb, 'mapping_dict.xlsx');
+  mkCopy(bookSheetToTSV(qtywb, '数量表'), '数量表');
+}
+
+// 行シグネチャ (除外/選択トグルの同定キー)
+function rowSig(r) {
+  return [r.カテゴリ, r.設備種別名称||'', r.工種, r.項目, r.機器表示名||'', r.型式||''].join('|||');
+}
+
+// グループ列挙: 同一カテゴリ×固定表示名に 2件以上のマッチキー
+function getGroups(mapping) {
+  const m = new Map();
+  for (const r of mapping||[]) {
+    const d = String(r['表示名']||'').trim();
+    if (!d) continue;
+    if (/\{(len|conn1|conn2|model)\}/.test(d)) continue;
+    if (String(r['除外フラグ']||'').trim()==='除外') continue;
+    const cat = r['カテゴリ'];
+    if (!cat) continue;
+    const k = `${cat}|||${d}`;
+    if (!m.has(k)) m.set(k, { display:d, cat, keys:new Set(), unit:r['単位']||defaultUnit(cat) });
+    m.get(k).keys.add(String(r['マッチキー']));
+  }
+  return Array.from(m.values()).filter(g => g.keys.size >= 2);
+}
+function groupColor(name) {
+  let h = 0;
+  for (let i=0; i<name.length; i++) h = ((h*31) + name.charCodeAt(i)) & 0xffff;
+  return `hsl(${h % 360},55%,55%)`;
+}
+function findGroup(groups, cat, item) {
+  return groups.find(g => g.cat===cat && g.display===item) || null;
+}
 
 function renderSummary(mergedRaw, defaultMode, order) {
   const el = $('#tab-summary');
@@ -982,7 +1095,27 @@ function renderSummary(mergedRaw, defaultMode, order) {
   ];
   const active = (defaultMode === 'list') ? 'list' : 'agg';
 
-  let html = `<div class="subtabs">`;
+  // 編集バー (選択行の統合 + 既存グループ選択)
+  const selCount = (window._S && window._S.selection) ? window._S.selection.size : 0;
+  const groups = getGroups(window._S ? window._S.mapping : []);
+  let groupOpts = `<option value="__new__">+ 新規グループ</option>`;
+  for (const g of groups) {
+    const lab = `${g.display} [${g.cat}] (${g.keys.size}件)`;
+    groupOpts += `<option value="${esc(g.cat)}::${esc(g.display)}">${esc(lab)}</option>`;
+  }
+  let html = `
+    <div class="editbar" id="editbar">
+      <span>選択中: <span class="count" id="selCount">${selCount}</span> 行</span>
+      <select id="groupSelect" title="既存グループに追加 / 新規">${groupOpts}</select>
+      <input type="text" id="groupName" placeholder="統合表示名 (例: Radio2271(B28A))" autocomplete="off">
+      <button class="ghost" id="btnGroup" type="button">⚙ 統合 / グループに追加</button>
+      <button class="ghost ungroup-btn" id="btnUngroup" type="button">⟲ 選択行をグループ解除</button>
+      <button class="ghost" id="btnSelClear" type="button">選択解除</button>
+      <span class="editbar-note">行☐除外=即非表示。複数選択→既存グループ選択 or 新規名入力→統合。行をD&Dで合流可。</span>
+    </div>
+  `;
+
+  html += `<div class="subtabs">`;
   for (const v of views) {
     html += `<button data-sub="${v.key}" class="${v.key===active?'active':''}">${v.label} <span class="badge">${v.count}</span></button>`;
   }
@@ -1002,7 +1135,7 @@ function renderSummary(mergedRaw, defaultMode, order) {
     });
   });
 
-  // コピーボタンのバインド
+  // コピー
   el.querySelectorAll('button[data-copy]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const [sub, kind] = btn.dataset.copy.split('|');
@@ -1018,6 +1151,207 @@ function renderSummary(mergedRaw, defaultMode, order) {
       } catch (e) { log('err', `コピー失敗: ${e.message}`); }
     });
   });
+
+  // ----- 除外チェック (行のみ更新。テーブル全体は再描画しない) -----
+  el.querySelectorAll('input.exc').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const sig = cb.dataset.sig;
+      const cat = cb.dataset.cat;
+      const keys = (cb.dataset.keys||'').split('|||').filter(Boolean);
+      const checked = cb.checked;
+      upsertExclude(cat, keys, checked, cb.dataset.unit);
+
+      // mergedRaw の該当キーを含む行を即時反映 (xlsx生成用)
+      const keySet = new Set(keys);
+      for (const r of window._S.mergedRaw) {
+        if (r.カテゴリ !== cat) continue;
+        const hits = []
+          .concat((r.機器表示名||'').split(';'))
+          .concat((r.型式||'').split(';'))
+          .some(k => keySet.has((k||'').trim()));
+        if (hits) r.除外 = checked;
+      }
+      // 同じシグネチャの行 (両サブタブにある) を一括グレーアウト
+      el.querySelectorAll(`tr input.exc[data-sig="${CSS.escape(sig)}"]`).forEach(other => {
+        other.checked = checked;
+        const tr = other.closest('tr');
+        if (tr) tr.classList.toggle('row-excluded', checked);
+      });
+      window._S.dirty = true;
+      // DLボタンとTSVだけ更新 (テーブル再描画なし)
+      rebuildDownloads();
+    });
+  });
+
+  // ----- 選択チェック -----
+  el.querySelectorAll('input.sel').forEach(cb => {
+    cb.checked = window._S.selection.has(cb.dataset.sig);
+    cb.addEventListener('change', () => {
+      const sig = cb.dataset.sig;
+      if (cb.checked) window._S.selection.add(sig);
+      else window._S.selection.delete(sig);
+      $('#selCount').textContent = window._S.selection.size;
+      const tr = cb.closest('tr');
+      if (tr) tr.classList.toggle('row-selected', cb.checked);
+    });
+  });
+
+  // ----- 編集バー: ボタン -----
+  $('#btnSelClear').addEventListener('click', () => {
+    window._S.selection.clear();
+    el.querySelectorAll('input.sel').forEach(cb => { cb.checked=false; cb.closest('tr')?.classList.remove('row-selected'); });
+    $('#selCount').textContent = '0';
+  });
+  // 既存グループ選択時は groupName 入力欄に流し込む
+  $('#groupSelect').addEventListener('change', () => {
+    const v = $('#groupSelect').value;
+    if (v === '__new__') { $('#groupName').focus(); return; }
+    const [cat, display] = v.split('::');
+    $('#groupName').value = display || '';
+  });
+  $('#btnGroup').addEventListener('click', () => {
+    if (!window._S.selection.size) { log('warn', '統合: 行が未選択'); return; }
+    const sel = $('#groupSelect').value;
+    let display, lockedCat = null;
+    if (sel === '__new__') {
+      display = ($('#groupName').value || '').trim();
+    } else {
+      const parts = sel.split('::');
+      lockedCat = parts[0];
+      display = parts.slice(1).join('::');
+      // groupName に上書きがあればそちらを優先 (リネーム挙動)
+      const overide = ($('#groupName').value || '').trim();
+      if (overide) display = overide;
+    }
+    if (!display) { log('warn', '統合: 表示名を入力してください'); return; }
+
+    const sigSet = window._S.selection;
+    const targets = window._S.mergedRaw.filter(r => sigSet.has(rowSig(r)));
+    if (!targets.length) { log('warn', '統合: 対象行が見つからない'); return; }
+    const cats = new Set(targets.map(t => t.カテゴリ));
+    if (cats.size > 1) { log('err', `統合: カテゴリ混在 (${[...cats].join(',')}) は不可`); return; }
+    const cat = [...cats][0];
+    if (lockedCat && lockedCat !== cat) {
+      log('err', `統合: 選択グループ(${lockedCat}) と行カテゴリ(${cat}) が不一致`); return;
+    }
+    const unit = targets[0].単位 || defaultUnit(cat);
+    const allKeys = new Set();
+    for (const t of targets) {
+      (t.機器表示名||'').split(';').forEach(k => k && allKeys.add(k));
+      (t.型式||'').split(';').forEach(k => k && allKeys.add(k));
+    }
+    upsertDisplayName(cat, [...allKeys], display, unit);
+    window._S.selection.clear();
+    window._S.dirty = true;
+    log('ok', `統合: ${targets.length}行 → 「${display}」 / mappingに${allKeys.size}キー反映`);
+    rebuildOutputs();
+  });
+  $('#btnUngroup').addEventListener('click', () => {
+    if (!window._S.selection.size) { log('warn', 'グループ解除: 行が未選択'); return; }
+    const sigSet = window._S.selection;
+    const targets = window._S.mergedRaw.filter(r => sigSet.has(rowSig(r)));
+    if (!targets.length) return;
+    let cleared = 0;
+    for (const t of targets) {
+      const keys = []
+        .concat((t.機器表示名||'').split(';'))
+        .concat((t.型式||'').split(';'))
+        .map(s => s.trim()).filter(Boolean);
+      for (const k of keys) {
+        const hit = window._S.mapping.find(m => m['カテゴリ']===t.カテゴリ && String(m['マッチキー'])===String(k));
+        if (hit && hit['表示名']) {
+          hit['表示名'] = '';
+          cleared++;
+        }
+      }
+    }
+    window._S.selection.clear();
+    window._S.dirty = true;
+    log('ok', `グループ解除: ${targets.length}行 / mapping ${cleared}キー の表示名をクリア`);
+    rebuildOutputs();
+  });
+
+  // ----- D&D: 行 → 行 (グループ合流) -----
+  el.querySelectorAll('tr[draggable="true"]').forEach(tr => {
+    tr.addEventListener('dragstart', e => {
+      tr.classList.add('dragsrc');
+      const payload = {
+        sig:  tr.dataset.sig,
+        cat:  tr.dataset.cat,
+        keys: (tr.dataset.keys||'').split('|||').filter(Boolean),
+        item: tr.dataset.item,
+        unit: tr.dataset.unit,
+      };
+      try { e.dataTransfer.setData('application/json', JSON.stringify(payload)); }
+      catch(_) { e.dataTransfer.setData('text/plain', JSON.stringify(payload)); }
+      e.dataTransfer.effectAllowed = 'link';
+    });
+    tr.addEventListener('dragend', () => tr.classList.remove('dragsrc'));
+    tr.addEventListener('dragover', e => {
+      // 自分自身/別カテゴリは弾く
+      const srcCat = (e.dataTransfer.types.includes('application/json') || e.dataTransfer.types.includes('text/plain'))
+        ? tr.dataset.cat : null; // dragover時は payload を読めないのでカテゴリ整合は drop で判定
+      if (srcCat === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'link';
+      tr.classList.add('droptgt');
+    });
+    tr.addEventListener('dragleave', () => tr.classList.remove('droptgt'));
+    tr.addEventListener('drop', e => {
+      e.preventDefault();
+      tr.classList.remove('droptgt');
+      let raw = '';
+      try { raw = e.dataTransfer.getData('application/json'); } catch(_){}
+      if (!raw) try { raw = e.dataTransfer.getData('text/plain'); } catch(_){}
+      if (!raw) return;
+      let p; try { p = JSON.parse(raw); } catch(_) { return; }
+      if (p.sig === tr.dataset.sig) return; // 同一行は無視
+      if (p.cat !== tr.dataset.cat) { log('err', `D&D: カテゴリ不一致 (${p.cat} → ${tr.dataset.cat})`); return; }
+      // 対象行の項目に source のキー群を合流
+      const display = tr.dataset.item;
+      const unit = tr.dataset.unit || p.unit || defaultUnit(p.cat);
+      // 対象行 (tr) の機器表示名/型式 もまとめてグループに編入 (両方を同一表示名に登録 → 合算)
+      const tgtKeys = (tr.dataset.keys||'').split('|||').filter(Boolean);
+      const allKeys = Array.from(new Set([...p.keys, ...tgtKeys]));
+      upsertDisplayName(p.cat, allKeys, display, unit);
+      window._S.dirty = true;
+      log('ok', `D&D合流: 「${p.item}」 → 「${display}」 (mappingに${allKeys.length}キー反映)`);
+      rebuildOutputs();
+    });
+  });
+}
+
+// 除外/含めるをmappingにトグル登録
+function upsertExclude(cat, keys, exclude, unit) {
+  const mp = window._S.mapping;
+  for (const k of keys) {
+    if (!k) continue;
+    let hit = mp.find(m => m['カテゴリ']===cat && String(m['マッチキー'])===String(k));
+    if (!hit) {
+      hit = { カテゴリ:cat, マッチキー:k, 表示名:'', 単位:unit||defaultUnit(cat),
+              記事欄:'', 除外フラグ:'', 出現回数:'' };
+      mp.push(hit);
+    }
+    hit['除外フラグ'] = exclude ? '除外' : '';
+  }
+}
+
+// 表示名統合: 複数キーを同一表示名にぶら下げる (合算は merged 集約に任せる)
+function upsertDisplayName(cat, keys, display, unit) {
+  const mp = window._S.mapping;
+  for (const k of keys) {
+    if (!k) continue;
+    let hit = mp.find(m => m['カテゴリ']===cat && String(m['マッチキー'])===String(k));
+    if (!hit) {
+      hit = { カテゴリ:cat, マッチキー:k, 表示名:display, 単位:unit||defaultUnit(cat),
+              記事欄:'', 除外フラグ:'', 出現回数:'' };
+      mp.push(hit);
+    } else {
+      hit['表示名'] = display;
+      hit['単位']  = hit['単位'] || unit || defaultUnit(cat);
+      hit['除外フラグ'] = ''; // 統合する以上、除外は解く
+    }
+  }
 }
 
 // order textarea <-> array
@@ -1030,19 +1364,54 @@ function formatOrder(arr) {
 
 function renderSummaryBody(merged, subKey) {
   const kinds = [['新設','new'],['撤去','rem']];
+  const groups = getGroups(window._S ? window._S.mapping : []);
   let html = '';
   for (const [kind, cls] of kinds) {
-    const rows = merged.filter(r => r.工種===kind && !r.除外);
+    const rows = merged.filter(r => r.工種===kind);
     if (!rows.length) continue;
-    html += `<h3 style="margin:12px 0 4px 0"><span class="pill ${cls}">${kind}</span>${rows.length}品目 `;
-    html += `<button class="ghost" style="margin-left:8px;padding:2px 8px;font-size:11px" data-copy="${subKey}|${kind}">📋 この工種をTSVコピー</button></h3>`;
-    html += `<table class="summary"><tr><th>設備種別名称</th><th>項目</th><th>単位</th><th style="text-align:right">合計</th><th>記事欄</th><th></th></tr>`;
+    const visibleCount = rows.filter(r => !r.除外).length;
+    html += `<h3 style="margin:12px 0 4px 0"><span class="pill ${cls}">${kind}</span>${visibleCount}品目`;
+    const excCount = rows.length - visibleCount;
+    if (excCount) html += ` <span style="color:var(--muted);font-size:11px">(除外${excCount})</span>`;
+    html += ` <button class="ghost" style="margin-left:8px;padding:2px 8px;font-size:11px" data-copy="${subKey}|${kind}">📋 この工種をTSVコピー</button></h3>`;
+    html += `<table class="summary"><tr>
+      <th>設備種別名称</th><th>項目</th><th>単位</th>
+      <th style="text-align:right">合計</th><th>記事欄</th><th></th>
+      <th class="act" title="除外">✕</th><th class="act" title="選択(統合用)">☑</th></tr>`;
     let prevEq = null;
     for (const r of rows) {
       const warn = r.辞書ヒット ? '' : ' unresolved';
+      const excCls = r.除外 ? ' row-excluded' : '';
       const eq = r.設備種別名称 || '';
       const sep = (prevEq !== null && prevEq !== eq) ? ' style="border-top:2px solid var(--border)"' : '';
-      html += `<tr class="${cls}${warn}"${sep}><td><span class="pill">${esc(eq)||'-'}</span></td><td>${esc(r.項目)}</td><td>${esc(r.単位)}</td><td style="text-align:right">${r.合計}</td><td>${esc(r.記事欄)}</td><td>${r.辞書ヒット?'':'<span class="pill">未登録</span>'}</td></tr>`;
+      const sig = esc(rowSig(r));
+      const keys = []
+        .concat((r.機器表示名||'').split(';'))
+        .concat((r.型式||'').split(';'))
+        .map(s => s.trim()).filter(Boolean);
+      const keysAttr = esc(keys.join('|||'));
+      const excChecked = r.除外 ? 'checked' : '';
+      // グループ判定
+      const g = findGroup(groups, r.カテゴリ, r.項目);
+      let gBadge = '';
+      let groupCls = '';
+      let groupAttrs = '';
+      if (g) {
+        const color = groupColor(g.display);
+        gBadge = `<span class="gtag" title="グループ: ${esc(g.display)} (${g.keys.size}キー)"><span class="gdot" style="background:${color}"></span>${esc(g.display)}</span>`;
+        groupCls = ' row-group';
+        groupAttrs = ` data-group="${esc(g.display)}" data-group-cat="${esc(g.cat)}"`;
+      }
+      html += `<tr class="${cls}${warn}${excCls}${groupCls}"${sep} draggable="true" data-sig="${sig}" data-cat="${esc(r.カテゴリ)}" data-keys="${keysAttr}" data-item="${esc(r.項目)}" data-unit="${esc(r.単位)}"${groupAttrs}>
+        <td><span class="pill">${esc(eq)||'-'}</span></td>
+        <td>${gBadge}${esc(r.項目)}</td>
+        <td>${esc(r.単位)}</td>
+        <td style="text-align:right">${r.合計}</td>
+        <td>${esc(r.記事欄)}</td>
+        <td>${r.辞書ヒット?'':'<span class="pill">未登録</span>'}</td>
+        <td class="act"><input type="checkbox" class="exc" ${excChecked} data-sig="${sig}" data-cat="${esc(r.カテゴリ)}" data-keys="${keysAttr}" data-unit="${esc(r.単位)}" title="除外"></td>
+        <td class="act"><input type="checkbox" class="sel" data-sig="${sig}" title="統合用に選択"></td>
+      </tr>`;
       prevEq = eq;
     }
     html += `</table>`;
