@@ -1200,18 +1200,27 @@ function bookSheetToTSV(wb, sheetName) {
 }
 
 function writeQuantityTable(merged, extras, order) {
-  // 単一シート「数量表」: 設備種別名称 + 工種 が切り替わるたびに空行を挟む
+  // 単一シート「数量表」: まず新設をすべて列挙 → 空行 → 撤去をすべて列挙 → 空行 → extras
+  // 各工種ブロック内では「設備種別名称」が変わるたびに空行を挟む。
   const df = sortByOrder(merged.filter(r => !r.除外), order);
   const hdr = ['設備種別名称','項目','工種','単位','合計','記事欄'];
   const rows = [hdr];
   const blank = ['','','','','',''];
-  let prev = null;
-  for (const r of df) {
-    const tag = `${r.設備種別名称||''}|${r.工種}`;
-    if (prev && prev!==tag) rows.push(blank.slice());
-    rows.push([r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄]);
-    prev = tag;
+
+  for (const kind of ['新設', '撤去']) {
+    const sub = df.filter(r => r.工種 === kind);
+    if (!sub.length) continue;
+    // 工種ブロックの間に空行
+    if (rows.length > 1) rows.push(blank.slice());
+    let prevEq = null;
+    for (const r of sub) {
+      const eq = r.設備種別名称 || '';
+      if (prevEq !== null && prevEq !== eq) rows.push(blank.slice());
+      rows.push([eq, r.項目, r.工種, r.単位, r.合計, r.記事欄]);
+      prevEq = eq;
+    }
   }
+
   if (extras && extras.length) {
     const exs = extras.filter(x => String(x['項目']||'').trim());
     if (exs.length) {
