@@ -1423,8 +1423,9 @@ function renderSummary(mergedRaw, defaultMode, order) {
   const groups = getGroups(window._S ? window._S.mapping : []);
   let groupOpts = `<option value="__new__">+ 新規グループ</option>`;
   for (const g of groups) {
-    const lab = `${g.display} [${g.cat}] (${g.keys.size}件)`;
-    groupOpts += `<option value="${esc(g.cat)}::${esc(g.display)}">${esc(lab)}</option>`;
+    const keysList = [...g.keys].sort().join(', ');
+    const lab = `${g.display} [${g.cat}] (${g.keys.size}マッチキー)`;
+    groupOpts += `<option value="${esc(g.cat)}::${esc(g.display)}" title="${esc(keysList)}">${esc(lab)}</option>`;
   }
   let html = `
     <div class="editbar" id="editbar">
