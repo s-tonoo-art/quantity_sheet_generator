@@ -685,6 +685,7 @@
     <label><input type="checkbox" id="pink"> 桃1 (他社) も含める</label>
     <label><input type="checkbox" id="autolearn" checked> 未登録品目を辞書に自動追記</label>
     <span style="flex:1"></span>
+    <button class="ghost" id="clearBtn" type="button" title="入力ファイル・出力・プレビュー・選択をすべて消す">⟲ クリア</button>
     <button class="run" id="runBtn" disabled>実行</button>
   </div>
 
@@ -1237,6 +1238,30 @@ function writeDict(mapping, extras, order) {
 // 中央state: 行操作 (除外/グループ化) を applyDict 再実行に反映するために保持
 window._S = null;
 
+// ============================================================
+// クリア: 全状態を初期化 (入力スロット / プレビュー / DLボタン / ログ / state)
+// ============================================================
+$('#clearBtn').addEventListener('click', () => {
+  // スロットを空に
+  for (const key of ['antenna','cable','equipment','dict']) {
+    setSlot(key, null);
+  }
+  // 出力・プレビュー・タブ・ログをクリア
+  $('#dls').innerHTML = '';
+  $('#tab-summary').innerHTML = '';
+  $('#tab-unresolved').innerHTML = '';
+  $('#log').innerHTML = '';
+  $('#tabs').hidden = true;
+  $('#orderText').value = '';
+  // state破棄
+  window._S = null;
+  // オプションを既定に戻す
+  $('#pink').checked = false;
+  $('#autolearn').checked = true;
+  $('#mode').value = 'agg';
+  log('ok', 'クリア完了 (CSV/辞書/プレビュー/state を初期化)');
+});
+
 $('#runBtn').addEventListener('click', async () => {
   const btn = $('#runBtn'); btn.disabled = true;
   $('#dls').innerHTML = ''; $('#tab-summary').innerHTML=''; $('#tab-unresolved').innerHTML='';
@@ -1383,6 +1408,10 @@ function renderSummary(mergedRaw, defaultMode, order) {
   const mergedAgg = collapseSectors(mergedRaw);
   const sortedRaw = sortByOrder(mergedRaw, order);
   const sortedAgg = sortByOrder(mergedAgg, order);
+  // 行操作 (統合/解除) で参照するため、表示中の行配列を保存
+  if (window._S) {
+    window._S.lastDisplayed = { agg: sortedAgg, list: sortedRaw };
+  }
   const views = [
     { key: 'agg',  label: `Sec統合 (修正有)`, data: sortedAgg, count: sortedAgg.length },
     { key: 'list', label: `一覧 (修正無)`,   data: sortedRaw, count: sortedRaw.length },
@@ -1503,6 +1532,17 @@ function renderSummary(mergedRaw, defaultMode, order) {
     const [cat, display] = v.split('::');
     $('#groupName').value = display || '';
   });
+  // 現在アクティブなサブタブの表示行から targets を引く
+  // (Sec統合タブと一覧タブで rowSig が違うため、表示中の行配列から取るのが正確)
+  function selectedTargets() {
+    const sigSet = window._S.selection;
+    if (!sigSet || !sigSet.size) return [];
+    const activeBtn = el.querySelector('.subtabs button.active');
+    const sub = activeBtn ? activeBtn.dataset.sub : 'agg';
+    const src = (window._S.lastDisplayed && window._S.lastDisplayed[sub]) || [];
+    return src.filter(r => sigSet.has(rowSig(r)));
+  }
+
   $('#btnGroup').addEventListener('click', () => {
     if (!window._S.selection.size) { log('warn', '統合: 行が未選択'); return; }
     const sel = $('#groupSelect').value;
@@ -1513,15 +1553,13 @@ function renderSummary(mergedRaw, defaultMode, order) {
       const parts = sel.split('::');
       lockedCat = parts[0];
       display = parts.slice(1).join('::');
-      // groupName に上書きがあればそちらを優先 (リネーム挙動)
       const overide = ($('#groupName').value || '').trim();
       if (overide) display = overide;
     }
     if (!display) { log('warn', '統合: 表示名を入力してください'); return; }
 
-    const sigSet = window._S.selection;
-    const targets = window._S.mergedRaw.filter(r => sigSet.has(rowSig(r)));
-    if (!targets.length) { log('warn', '統合: 対象行が見つからない'); return; }
+    const targets = selectedTargets();
+    if (!targets.length) { log('warn', '統合: 対象行が見つからない (選択シグネチャ不一致)'); return; }
     const cats = new Set(targets.map(t => t.カテゴリ));
     if (cats.size > 1) { log('err', `統合: カテゴリ混在 (${[...cats].join(',')}) は不可`); return; }
     const cat = [...cats][0];
@@ -1542,9 +1580,8 @@ function renderSummary(mergedRaw, defaultMode, order) {
   });
   $('#btnUngroup').addEventListener('click', () => {
     if (!window._S.selection.size) { log('warn', 'グループ解除: 行が未選択'); return; }
-    const sigSet = window._S.selection;
-    const targets = window._S.mergedRaw.filter(r => sigSet.has(rowSig(r)));
-    if (!targets.length) return;
+    const targets = selectedTargets();
+    if (!targets.length) { log('warn', 'グループ解除: 対象行が見つからない'); return; }
     let cleared = 0;
     for (const t of targets) {
       const keys = []
