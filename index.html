@@ -472,6 +472,7 @@
               <tr><td>単位</td><td>合計の単位</td><td><code>本</code> / <code>台</code> / <code>個</code></td></tr>
               <tr><td>記事欄</td><td>固定文言 (任意)</td><td><code>他社</code> など</td></tr>
               <tr><td>除外フラグ</td><td><code>除外</code> と書けば集計から外す</td><td>空 or <code>除外</code></td></tr>
+              <tr><td>除外上限m</td><td>数値を入れると、除外フラグ=除外でもケーブル長がこの値を超える行は除外せず通常項目として表示 (空欄なら長さ無条件で除外)</td><td>空 or <code>10</code></td></tr>
               <tr><td>出現回数</td><td>実行時に自動更新される統計列</td><td>(自動)</td></tr>
             </table>
             <p><b>マッチ順</b>: 機器表示名 → 型式 → 設備=&lt;設備種別名称&gt;。最初にヒットしたものが採用される。<br>
@@ -927,7 +928,7 @@ function readCsv(file) {
 // ============================================================
 // 辞書 xlsx 読み込み
 // ============================================================
-const DICT_COLS = ['カテゴリ','マッチキー','表示名','単位','記事欄','除外フラグ','出現回数'];
+const DICT_COLS = ['カテゴリ','マッチキー','表示名','単位','記事欄','除外フラグ','除外上限m','出現回数'];
 const EXTRAS_COLS = ['工種','項目','単位','合計','記事欄'];
 
 async function readDict(file) {
@@ -1105,15 +1106,17 @@ function applyDict(agg, mapping, autoLearn) {
     const hit = lookup(mp, r.カテゴリ, r.機器表示名, r.型式, r.設備種別名称);
     let display, unit, note, excluded=false, resolved=false;
     if (!hit) {
-      display = r.機器表示名 || r.型式;
+      display = r.型式 || r.機器表示名;
       if (r.カテゴリ==='cable' && r.ケーブル長) display = `${display},${r.ケーブル長}m`;
       unit = defaultUnit(r.カテゴリ); note=''; resolved=false;
       unresolved.push({ カテゴリ:r.カテゴリ, 機器表示名:r.機器表示名, 型式:r.型式, 数量:r.数量 });
     } else {
       resolved = true;
       excluded = String(hit['除外フラグ']||'').trim()==='除外';
+      const exLimit = parseFloat(hit['除外上限m']);
+      if (excluded && !isNaN(exLimit) && Number(r.ケーブル長) > exLimit) excluded = false;
       const tmpl = String(hit['表示名']||'').trim();
-      display = tmpl ? expandTemplate(tmpl, r.ケーブル長, r.conn1, r.conn2, r.型式) : (r.機器表示名||r.型式);
+      display = tmpl ? expandTemplate(tmpl, r.ケーブル長, r.conn1, r.conn2, r.型式) : (r.型式||r.機器表示名);
       unit = String(hit['単位']||'').trim() || defaultUnit(r.カテゴリ);
       note = String(hit['記事欄']||'').trim();
     }
@@ -1474,8 +1477,8 @@ function renderSummary(mergedRaw, defaultMode, order) {
       const [sub, kind] = btn.dataset.copy.split('|');
       const src = (sub==='agg') ? sortedAgg : sortedRaw;
       const rows = src.filter(r => r.工種===kind && !r.除外);
-      const tsv = ['設備種別名称\t項目\t単位\t合計\t記事欄',
-        ...rows.map(r => [r.設備種別名称||'', r.項目, r.単位, r.合計, r.記事欄].join('\t'))].join('\n');
+      const tsv = ['設備種別名称\t項目\t工種\t単位\t合計\t記事欄',
+        ...rows.map(r => [r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄].join('\t'))].join('\n');
       try {
         await navigator.clipboard.writeText(tsv);
         const orig = btn.textContent;
