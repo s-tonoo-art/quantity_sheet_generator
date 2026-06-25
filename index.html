@@ -483,6 +483,9 @@
 
             <h4>5.3 order シート (並び順)</h4>
             <p>設備種別名称を1列目に上から優先順で書く。UIの並び順テキストエリアと相互変換される。</p>
+
+            <h4>5.4 category シート (上位分類)</h4>
+            <p>列: <code>設備種別名称 / カテゴリ</code>。「カテゴリ別」タブ・コピー機能で使う上位グループ名 (例: 無線機 / 空中線・同軸・フィルター・共用器 / 光 / 電源関連 等、案件の取りまとめ方に合わせて自由に命名)。実行すると登場した設備種別名称が自動で行追加される (カテゴリ欄は空のまま) ので、Excelで埋めて辞書をDLし直せば次回から反映される。カテゴリの並び順は、このシート内でそのカテゴリ名が最初に登場した順。空欄の設備種別名称は「未分類」として末尾にまとめて表示される。</p>
           </section>
 
           <section id="m-row">
@@ -506,6 +509,7 @@
               <li><code>数量表_yyyymmddhhmm.xlsx</code>: 単一シート (列: 設備種別名称 / 項目 / 工種 / 単位 / 合計 / 記事欄)。設備種別+工種の境界に空行。</li>
               <li><code>mapping_dict.xlsx</code>: 未登録品目が自動追記された更新版 (autoLearn有効時)、および行操作の結果が反映された辞書。</li>
               <li><code>📋 数量表をコピー</code>: 既存Excelテンプレに貼り付け用のTSV。</li>
+              <li>「カテゴリ別」タブ: 辞書 <code>category</code> シートの分類でグルーピングした表示・コピー専用ビュー (xlsx本体の構成は変えない)。</li>
             </ul>
           </section>
 
@@ -709,23 +713,30 @@
 
   <div class="tabs" id="tabs" hidden>
     <button data-tab="summary" class="active">集計プレビュー</button>
+    <button data-tab="category">カテゴリ別</button>
     <button data-tab="unresolved">未登録一覧</button>
     <button data-tab="log">ログ</button>
   </div>
   <div class="tab-body active" data-tab="summary" id="tab-summary"></div>
+  <div class="tab-body" data-tab="category" id="tab-category"></div>
   <div class="tab-body" data-tab="unresolved" id="tab-unresolved"></div>
   <div class="tab-body" data-tab="log"><div class="log" id="log"></div></div>
 
   <details>
     <summary>辞書フォーマット (mapping_dict.xlsx)</summary>
     <pre>シート [mapping]:
-  カテゴリ | マッチキー | 表示名 | 単位 | 記事欄 | 除外フラグ | 出現回数
+  カテゴリ | マッチキー | 表示名 | 単位 | 記事欄 | 除外フラグ | 除外上限m | 出現回数
   マッチ順: 機器表示名 → 型式 → 設備=&lt;設備種別名称&gt;
   表示名のトークン: {len}, {conn1}, {conn2}, {model}
-  例: cable | 設備=給電線 | {model},{len}m,({conn1}/{conn2}) | 本 | | |
+  例: cable | 設備=給電線 | {model},{len}m,({conn1}/{conn2}) | 本 | | | |
 シート [extras]:
   工種 | 項目 | 単位 | 合計 | 記事欄
   (CSVに無いが毎回数量表末尾に足したい品目：架台・HVIE等)
+シート [order]:
+  設備種別名称 (1列、並び順)
+シート [category]:
+  設備種別名称 | カテゴリ
+  (「カテゴリ別」タブで使う上位グループ名。未入力分は実行時に自動追記)
     </pre>
   </details>
 
@@ -930,9 +941,10 @@ function readCsv(file) {
 // ============================================================
 const DICT_COLS = ['カテゴリ','マッチキー','表示名','単位','記事欄','除外フラグ','除外上限m','出現回数'];
 const EXTRAS_COLS = ['工種','項目','単位','合計','記事欄'];
+const CATEGORY_COLS = ['設備種別名称','カテゴリ'];
 
 async function readDict(file) {
-  if (!file) return { mapping:[], extras:[], order:[] };
+  if (!file) return { mapping:[], extras:[], order:[], category:[] };
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type:'array' });
   const readSheet = (name, cols) => {
@@ -951,9 +963,10 @@ async function readDict(file) {
     order = rows.map(r => String(r['設備種別名称'] ?? r[Object.keys(r)[0]] ?? '').trim()).filter(Boolean);
   }
   return {
-    mapping: readSheet('mapping', DICT_COLS),
-    extras:  readSheet('extras',  EXTRAS_COLS),
+    mapping:  readSheet('mapping',  DICT_COLS),
+    extras:   readSheet('extras',   EXTRAS_COLS),
     order,
+    category: readSheet('category', CATEGORY_COLS),
   };
 }
 
@@ -1237,11 +1250,40 @@ function writeQuantityTable(merged, extras, order) {
   return aoaToBook([['数量表', rows]]);
 }
 
-function writeDict(mapping, extras, order) {
+function writeDict(mapping, extras, order, category) {
   const s1 = [DICT_COLS, ...mapping.map(r => DICT_COLS.map(c => r[c] ?? ''))];
   const s2 = [EXTRAS_COLS, ...extras.map(r => EXTRAS_COLS.map(c => r[c] ?? ''))];
   const s3 = [['設備種別名称'], ...(order||[]).map(v => [v])];
-  return aoaToBook([['mapping', s1], ['extras', s2], ['order', s3]]);
+  const s4 = [CATEGORY_COLS, ...(category||[]).map(r => CATEGORY_COLS.map(c => r[c] ?? ''))];
+  return aoaToBook([['mapping', s1], ['extras', s2], ['order', s3], ['category', s4]]);
+}
+
+// order/category シートに未登場の設備種別名称を空カテゴリで追記 (autoLearn相当)
+function ensureCategoryRows(category, merged) {
+  const cat = (category||[]).map(r => ({...r}));
+  const known = new Set(cat.map(r => String(r['設備種別名称']||'').trim()).filter(Boolean));
+  let added = 0;
+  for (const r of merged||[]) {
+    const eq = String(r.設備種別名称||'').trim();
+    if (!eq || known.has(eq)) continue;
+    known.add(eq);
+    cat.push({ '設備種別名称': eq, 'カテゴリ': '' });
+    added++;
+  }
+  return { category: cat, added };
+}
+
+// category シートから 設備種別名称→カテゴリ の対応表と、カテゴリの表示順を作る
+function buildCategoryIndex(category) {
+  const map = new Map();
+  const order = [];
+  for (const r of category||[]) {
+    const eq = String(r['設備種別名称']||'').trim();
+    const c  = String(r['カテゴリ']||'').trim();
+    if (eq && c) map.set(eq, c);
+    if (c && !order.includes(c)) order.push(c);
+  }
+  return { map, order };
 }
 
 // ============================================================
@@ -1261,6 +1303,7 @@ $('#clearBtn').addEventListener('click', () => {
   // 出力・プレビュー・タブ・ログをクリア
   $('#dls').innerHTML = '';
   $('#tab-summary').innerHTML = '';
+  $('#tab-category').innerHTML = '';
   $('#tab-unresolved').innerHTML = '';
   $('#log').innerHTML = '';
   $('#tabs').hidden = true;
@@ -1276,8 +1319,8 @@ $('#clearBtn').addEventListener('click', () => {
 
 $('#runBtn').addEventListener('click', async () => {
   const btn = $('#runBtn'); btn.disabled = true;
-  $('#dls').innerHTML = ''; $('#tab-summary').innerHTML=''; $('#tab-unresolved').innerHTML='';
-  $('#log').innerHTML = ''; $('#tabs').hidden = true;
+  $('#dls').innerHTML = ''; $('#tab-summary').innerHTML=''; $('#tab-category').innerHTML='';
+  $('#tab-unresolved').innerHTML=''; $('#log').innerHTML = ''; $('#tabs').hidden = true;
   logHR();
   try {
     const dfs = { antenna:[], cable:[], equipment:[] };
@@ -1311,12 +1354,16 @@ $('#runBtn').addEventListener('click', async () => {
     const mode = $('#mode').value;
     const order = parseOrderText($('#orderText').value);
 
+    const { category, added: catAdded } = ensureCategoryRows(dict.category, mergedRaw);
+    if (catAdded) log('ok', `カテゴリ表に設備種別名称を${catAdded}件追記 (要分類)`);
+
     // === state 保存: 行操作 (除外/統合) からの再ビルドに使う ===
     window._S = {
       agg,
       mapping,            // 行操作で書き換える生 mapping
       extras: dict.extras,
       order,
+      category,
       mode,
       mergedRaw,          // applyDict直後
       unresolved,
@@ -1344,6 +1391,8 @@ function rebuildOutputs() {
   const { merged: mergedRaw, mapping } = applyDict(S.agg, S.mapping, false);
   S.mergedRaw = mergedRaw;
   S.mapping = mapping;
+  const { category } = ensureCategoryRows(S.category, mergedRaw);
+  S.category = category;
   rebuildDownloads();
   renderSummary(mergedRaw, S.mode, S.order);
 }
@@ -1353,7 +1402,7 @@ function rebuildDownloads() {
   const S = window._S; if (!S) return;
   const merged = (S.mode === 'agg') ? collapseSectors(S.mergedRaw) : S.mergedRaw;
   const qtywb  = writeQuantityTable(merged, S.extras, S.order);
-  const dictwb = writeDict(S.mapping, S.extras, S.order);
+  const dictwb = writeDict(S.mapping, S.extras, S.order, S.category);
 
   const dls = $('#dls'); dls.innerHTML = '';
   const now = new Date();
@@ -1382,6 +1431,7 @@ function rebuildDownloads() {
   mkDL(qtywb,  qtyName);
   mkDL(dictwb, 'mapping_dict.xlsx');
   mkCopy(bookSheetToTSV(qtywb, '数量表'), '数量表');
+  renderCategoryView(merged, S.category);
 }
 
 // 行シグネチャ (除外/選択トグルの同定キー)
@@ -1773,6 +1823,77 @@ function renderUnresolved(list) {
   }
   html += `</table>`;
   el.innerHTML = html;
+}
+
+// カテゴリ別タブ: 辞書 category シートの分類でグルーピングした表示専用ビュー (xlsx本体は変えない)
+function renderCategoryView(merged, category) {
+  const el = $('#tab-category');
+  if (!el) return;
+  if (!merged || !merged.length) { el.innerHTML = '<p style="color:var(--muted)">(出力なし)</p>'; return; }
+  const { map: catMap, order: catOrder } = buildCategoryIndex(category);
+  const catOf = r => catMap.get(r.設備種別名称||'') || '未分類';
+  const rankOf = c => { const i = catOrder.indexOf(c); return i<0 ? catOrder.length : i; };
+
+  const kinds = [['新設','new'],['撤去','rem']];
+  let html = `<p style="color:var(--muted);font-size:12px">辞書 <code>category</code> シート (設備種別名称→カテゴリ) でグルーピングしたコピー専用ビュー。分類は <code>↓ mapping_dict.xlsx</code> の category シートで編集。</p>`;
+
+  for (const [kind, cls] of kinds) {
+    const rows = merged.filter(r => r.工種===kind && !r.除外);
+    if (!rows.length) continue;
+    html += `<h3 style="margin:12px 0 4px 0"><span class="pill ${cls}">${kind}</span>${rows.length}品目
+      <button class="ghost" style="margin-left:8px;padding:2px 8px;font-size:11px" data-catcopy="${kind}">📋 この工種をカテゴリ別TSVコピー</button></h3>`;
+    html += `<table class="summary"><tr><th>カテゴリ</th><th>項目</th><th>単位</th><th style="text-align:right">合計</th><th>記事欄</th></tr>`;
+
+    const byCat = new Map();
+    for (const r of rows) {
+      const c = catOf(r);
+      if (!byCat.has(c)) byCat.set(c, []);
+      byCat.get(c).push(r);
+    }
+    const cats = [...byCat.keys()].sort((a,b) => rankOf(a) - rankOf(b));
+    for (const c of cats) {
+      let first = true;
+      for (const r of byCat.get(c)) {
+        html += `<tr class="${cls}"${first?' style="border-top:2px solid var(--border)"':''}>
+          <td>${first?`<span class="pill">${esc(c)}</span>`:''}</td>
+          <td>${esc(r.項目)}</td>
+          <td>${esc(r.単位)}</td>
+          <td style="text-align:right">${r.合計}</td>
+          <td>${esc(r.記事欄)}</td>
+        </tr>`;
+        first = false;
+      }
+    }
+    html += `</table>`;
+  }
+  el.innerHTML = html;
+
+  el.querySelectorAll('button[data-catcopy]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const kind = btn.dataset.catcopy;
+      const rows = merged.filter(r => r.工種===kind && !r.除外);
+      const byCat = new Map();
+      for (const r of rows) {
+        const c = catOf(r);
+        if (!byCat.has(c)) byCat.set(c, []);
+        byCat.get(c).push(r);
+      }
+      const cats = [...byCat.keys()].sort((a,b) => rankOf(a) - rankOf(b));
+      const lines = ['カテゴリ\t項目\t工種\t単位\t合計\t記事欄'];
+      for (const c of cats) {
+        let first = true;
+        for (const r of byCat.get(c)) {
+          lines.push([first?c:'', r.項目, r.工種, r.単位, r.合計, r.記事欄].join('\t'));
+          first = false;
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(lines.join('\n'));
+        btn.textContent = '✓ コピー済';
+        setTimeout(() => btn.textContent = '📋 この工種をカテゴリ別TSVコピー', 1500);
+      } catch (e) { log('err', `クリップボード: ${e.message}`); }
+    });
+  });
 }
 
 function esc(s) { return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
