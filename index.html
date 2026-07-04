@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>樹抽出 数量表ジェネレータ v0.4</title>
+<title>樹抽出 数量表ジェネレータ v0.5</title>
 <!-- ローカル処理のみ。CSV/xlsx は外部送信されません。 -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -355,7 +355,7 @@
 <body>
   <button class="help-btn" id="helpBtn" title="取説" aria-label="取説を開く">?</button>
 
-  <h1>樹抽出 数量表ジェネレータ <small>v0.4 · ローカル処理のみ</small></h1>
+  <h1>樹抽出 数量表ジェネレータ <small>v0.5 · ローカル処理のみ</small></h1>
   <p class="tagline">人間がCSVを読む時代は、そろそろ終わっていい。</p>
   <p class="lead">
     樹プロパティCSV3本 + 辞書xlsxをD&amp;D → 数量表.xlsx を生成。
@@ -393,7 +393,7 @@
         <!-- 本文 -->
         <div class="manual-content" id="manualContent">
           <h2>樹抽出 数量表ジェネレータ 説明書</h2>
-          <p class="subtitle">v0.4 · ローカル処理のみ · 外部送信なし</p>
+          <p class="subtitle">v0.5 · ローカル処理のみ · 外部送信なし</p>
 
           <section id="m-quick">
             <h3>1. クイックスタート</h3>
@@ -652,6 +652,7 @@
             依存ライブラリ: PapaParse (MIT) / SheetJS (Apache 2.0)。</p>
             <h4>変更履歴</h4>
             <ul>
+              <li>v0.5: ✕除外が型式キャッチオール行を誤って除外するバグ修正。GPSケーブルにメートル数表示を追加。</li>
               <li>v0.4: 表示名トークンに <code>{name}</code> (機器表示名) を追加。</li>
               <li>v0.3: category シートに表示順列を追加。カテゴリの並び順を数字で明示指定可能に。</li>
               <li>v0.2: カテゴリ別タブ追加。TSVコピー時に除外チェック済み行が含まれるバグ修正。</li>
@@ -1750,18 +1751,23 @@ function renderSummary(mergedRaw, defaultMode, order) {
 }
 
 // 除外/含めるをmappingにトグル登録
+// keys は [機器表示名, 型式, ...] の順。最初にヒットした既存エントリだけ更新し終了。
+// ヒットなしなら最初のキーで新規追加 (キャッチオール行を誤って除外しないため)。
 function upsertExclude(cat, keys, exclude, unit) {
   const mp = window._S.mapping;
   for (const k of keys) {
     if (!k) continue;
-    let hit = mp.find(m => m['カテゴリ']===cat && String(m['マッチキー'])===String(k));
-    if (!hit) {
-      hit = { カテゴリ:cat, マッチキー:k, 表示名:'', 単位:unit||defaultUnit(cat),
-              記事欄:'', 除外フラグ:'', 出現回数:'' };
-      mp.push(hit);
+    const hit = mp.find(m => m['カテゴリ']===cat && String(m['マッチキー'])===String(k));
+    if (hit) {
+      hit['除外フラグ'] = exclude ? '除外' : '';
+      return; // 最初にヒットした1件だけ更新して終了
     }
-    hit['除外フラグ'] = exclude ? '除外' : '';
   }
+  // どのキーも既存エントリにヒットしなかった → 最初のキーで新規登録
+  const firstKey = keys.find(k => k);
+  if (!firstKey) return;
+  mp.push({ カテゴリ:cat, マッチキー:firstKey, 表示名:'', 単位:unit||defaultUnit(cat),
+            記事欄:'', 除外フラグ: exclude ? '除外' : '', 出現回数:'' });
 }
 
 // 表示名統合: 複数キーを同一表示名にぶら下げる (合算は merged 集約に任せる)
