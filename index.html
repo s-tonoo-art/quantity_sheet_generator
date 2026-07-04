@@ -485,7 +485,8 @@
             <p>設備種別名称を1列目に上から優先順で書く。UIの並び順テキストエリアと相互変換される。</p>
 
             <h4>5.4 category シート (上位分類)</h4>
-            <p>列: <code>設備種別名称 / カテゴリ</code>。「カテゴリ別」タブ・コピー機能で使う上位グループ名 (例: 無線機 / 空中線・同軸・フィルター・共用器 / 光 / 電源関連 等、案件の取りまとめ方に合わせて自由に命名)。実行すると登場した設備種別名称が自動で行追加される (カテゴリ欄は空のまま) ので、Excelで埋めて辞書をDLし直せば次回から反映される。カテゴリの並び順は、このシート内でそのカテゴリ名が最初に登場した順。空欄の設備種別名称は「未分類」として末尾にまとめて表示される。</p>
+            <p>列: <code>設備種別名称 / カテゴリ / 表示順</code>。「カテゴリ別」タブ・コピー機能で使う上位グループ名 (例: 無線機 / 空中線・同軸・フィルター・共用器 / 光 / 電源関連 等)。実行すると登場した設備種別名称が自動で行追加される (カテゴリ欄は空のまま)。<br>
+            <strong>カテゴリの並び順</strong>: <code>表示順</code> 列に数字 (1, 2, 3…) を入れると、小さい順に表示される。同じカテゴリに複数行あるときは最小値を使用。表示順が空欄のカテゴリは数字ありの後ろに初登場順で並ぶ。カテゴリ列が空の設備種別名称は「未分類」として末尾にまとまる。</p>
           </section>
 
           <section id="m-row">
@@ -942,7 +943,7 @@ function readCsv(file) {
 // ============================================================
 const DICT_COLS = ['カテゴリ','マッチキー','表示名','単位','記事欄','除外フラグ','除外上限m','出現回数'];
 const EXTRAS_COLS = ['工種','項目','単位','合計','記事欄'];
-const CATEGORY_COLS = ['設備種別名称','カテゴリ'];
+const CATEGORY_COLS = ['設備種別名称','カテゴリ','表示順'];
 
 async function readDict(file) {
   if (!file) return { mapping:[], extras:[], order:[], category:[] };
@@ -1275,15 +1276,29 @@ function ensureCategoryRows(category, merged) {
 }
 
 // category シートから 設備種別名称→カテゴリ の対応表と、カテゴリの表示順を作る
+// 表示順列 (数値) が入っている行のカテゴリを先頭に昇順で並べ、空欄は初登場順で後続
 function buildCategoryIndex(category) {
-  const map = new Map();
-  const order = [];
+  const map = new Map();       // 設備種別名称 → カテゴリ
+  const firstSeen = [];        // カテゴリ名の初登場順
+  const minOrder = new Map();  // カテゴリ名 → 表示順の最小値
   for (const r of category||[]) {
     const eq = String(r['設備種別名称']||'').trim();
     const c  = String(r['カテゴリ']||'').trim();
+    const n  = parseFloat(r['表示順']);
     if (eq && c) map.set(eq, c);
-    if (c && !order.includes(c)) order.push(c);
+    if (!c) continue;
+    if (!firstSeen.includes(c)) firstSeen.push(c);
+    if (!isNaN(n)) {
+      const prev = minOrder.get(c) ?? Infinity;
+      if (n < prev) minOrder.set(c, n);
+    }
   }
+  const order = firstSeen.slice().sort((a, b) => {
+    const na = minOrder.get(a) ?? Infinity;
+    const nb = minOrder.get(b) ?? Infinity;
+    if (na !== nb) return na - nb;
+    return firstSeen.indexOf(a) - firstSeen.indexOf(b);
+  });
   return { map, order };
 }
 
