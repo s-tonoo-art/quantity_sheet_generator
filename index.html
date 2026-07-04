@@ -1521,12 +1521,13 @@ function renderSummary(mergedRaw, defaultMode, order) {
     });
   });
 
-  // コピー
+  // コピー (クリック時点の window._S から再取得して除外フラグを正しく反映)
   el.querySelectorAll('button[data-copy]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const [sub, kind] = btn.dataset.copy.split('|');
-      const src = (sub==='agg') ? sortedAgg : sortedRaw;
-      const rows = src.filter(r => r.工種===kind && !r.除外);
+      const S = window._S; if (!S) return;
+      const base = (sub==='agg') ? collapseSectors(S.mergedRaw) : S.mergedRaw;
+      const rows = sortByOrder(base, S.order).filter(r => r.工種===kind && !r.除外);
       const tsv = ['設備種別名称\t項目\t工種\t単位\t合計\t記事欄',
         ...rows.map(r => [r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄].join('\t'))].join('\n');
       try {
