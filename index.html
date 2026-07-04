@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>樹抽出 数量表ジェネレータ v0.1</title>
+<title>樹抽出 数量表ジェネレータ v0.2</title>
 <!-- ローカル処理のみ。CSV/xlsx は外部送信されません。 -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -355,7 +355,7 @@
 <body>
   <button class="help-btn" id="helpBtn" title="取説" aria-label="取説を開く">?</button>
 
-  <h1>樹抽出 数量表ジェネレータ <small>v0.1 · ローカル処理のみ</small></h1>
+  <h1>樹抽出 数量表ジェネレータ <small>v0.2 · ローカル処理のみ</small></h1>
   <p class="tagline">人間がCSVを読む時代は、そろそろ終わっていい。</p>
   <p class="lead">
     樹プロパティCSV3本 + 辞書xlsxをD&amp;D → 数量表.xlsx を生成。
@@ -393,7 +393,7 @@
         <!-- 本文 -->
         <div class="manual-content" id="manualContent">
           <h2>樹抽出 数量表ジェネレータ 説明書</h2>
-          <p class="subtitle">v0.1 · ローカル処理のみ · 外部送信なし</p>
+          <p class="subtitle">v0.2 · ローカル処理のみ · 外部送信なし</p>
 
           <section id="m-quick">
             <h3>1. クイックスタート</h3>
@@ -636,6 +636,7 @@
             依存ライブラリ: PapaParse (MIT) / SheetJS (Apache 2.0)。</p>
             <h4>変更履歴</h4>
             <ul>
+              <li>v0.2: カテゴリ別タブ追加。TSVコピー時に除外チェック済み行が含まれるバグ修正。</li>
               <li>v0.1: 初版。CSV3本入力・辞書連携・数量表単一シート出力・行操作 (除外/グループ統合) ・D&amp;Dグループ合流。</li>
             </ul>
             <p class="help-foot">このモーダルは <kbd>Esc</kbd> / 背景クリック / 右上× で閉じる。</p>
