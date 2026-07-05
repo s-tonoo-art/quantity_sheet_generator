@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>樹抽出 数量表ジェネレータ v1.0.3</title>
+<title>樹抽出 数量表ジェネレータ v0.9</title>
 <!-- ローカル処理のみ。CSV/xlsx は外部送信されません。 -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -351,16 +351,6 @@
   }
   table.summary tr.row-excluded td.act { opacity:1; text-decoration:none; }
   table.summary tr.row-selected td { background:rgba(79,179,255,.10); }
-  .aw-qty {
-    background:var(--panel2); border:1px solid var(--border); color:var(--fg);
-    border-radius:3px; padding:2px 6px; font-size:12px; width:64px;
-    text-align:right; font-family:var(--mono);
-  }
-  .aw-qty:focus { outline:1px solid var(--accent); }
-  .aw-row-badge {
-    font-size:10px; color:var(--muted); font-family:var(--mono);
-    background:var(--panel2); border-radius:2px; padding:1px 5px;
-  }
   table.summary input[type=checkbox] { accent-color:var(--accent); cursor:pointer; }
 
   /* --- グループ可視化 / D&D --- */
@@ -395,16 +385,12 @@
 <body>
   <button class="help-btn" id="helpBtn" title="取説" aria-label="取説を開く">?</button>
 
-  <h1>樹抽出 数量表ジェネレータ <small>v1.0.3 · ローカル処理のみ</small></h1>
+  <h1>樹抽出 数量表ジェネレータ <small>v0.9 · ローカル処理のみ</small></h1>
   <p class="tagline">人間がCSVを読む時代は、そろそろ終わっていい。</p>
 
   <details class="changelog-bar">
     <summary>変更履歴</summary>
     <div class="cl-body">
-      <div class="cl-row"><span class="cl-ver">v1.0.3</span><span class="cl-desc">ANDREWチェック: 発注書DLボタンを一時削除（書式崩壊問題のため）。発注数入力欄とExcel行番号表示は維持。将来的にローカルPython連携で書き戻し予定。</span></div>
-      <div class="cl-row"><span class="cl-ver">v1.0.2</span><span class="cl-desc">ANDREWチェック: 発注数入力欄 + 発注書DLボタン追加。✅行に数量を入力して「↓ 発注書DL」で発注書F列(数量)に書込んだ.xlsmをDL。Excel行番号表示も追加。</span></div>
-      <div class="cl-row"><span class="cl-ver">v1.0.1</span><span class="cl-desc">ANDREWチェック: parseAndrew の列インデックス修正 (品名→C列、型式→E列)。固定長ジャンパー照合が正常に動作するよう修正。</span></div>
-      <div class="cl-row"><span class="cl-ver">v1.0</span><span class="cl-desc">ANDREWチェック機能追加。ANDREW/Commscope発注書(.xlsm)をD&amp;Dで読み込み → 数量表の各品目が固定長ジャンパーリストにあるか、カスタムオーダー可か、未掲載かを✅/⚠️/✗で表示。</span></div>
       <div class="cl-row"><span class="cl-ver">v0.9</span><span class="cl-desc">TSVコピー時に空白行を挿入するチェックボックス追加 (デフォルトON)。集計プレビュー・カテゴリ別・数量表の全コピーに対応。</span></div>
       <div class="cl-row"><span class="cl-ver">v0.8.5</span><span class="cl-desc">辞書: 終端装置を「光・伝送装置」カテゴリに統合 (光・伝送装置タブにまとめて表示)。</span></div>
       <div class="cl-row"><span class="cl-ver">v0.8.4</span><span class="cl-desc">辞書: カテゴリ「伝送装置」を「光・伝送装置」と「終端装置」に分割 (category シート更新)。</span></div>
@@ -720,8 +706,6 @@
             依存ライブラリ: PapaParse (MIT) / SheetJS (Apache 2.0)。</p>
             <h4>変更履歴</h4>
             <ul>
-              <li>v1.0.1: ANDREWチェック列インデックス修正 (品名=C列、型式=E列)。固定長ジャンパー照合が正常に動作するよう修正。</li>
-              <li>v1.0: ANDREWチェック機能追加。ANDREW発注書(.xlsm)をD&Dで読み込み → 固定長リスト照合 (✅/⚠️/✗) を表示。</li>
               <li>v0.8: 集計プレビューで行D&amp;Dによる並び替えに対応。行間ドロップ→並び替え(辞書の行順/order更新)、行中央ドロップ→グループ合流(従来動作)。</li>
               <li>v0.7.2: ブレーカーを最大数値降順でソート (NFB 100AF → 30AF)。</li>
               <li>v0.7.1: カテゴリ別タブでも行順ソートが反映されていなかったバグ修正。</li>
@@ -775,15 +759,6 @@
     </div>
   </div>
 
-  <!-- ANDREW発注書スロット (任意 / ANDREWチェック機能用) -->
-  <div class="dz" id="andrewDz" data-slot="andrew" style="margin-top:8px;min-height:auto;padding:12px 14px;flex-direction:row;flex-wrap:wrap;align-items:center;gap:12px">
-    <h3 style="margin:0;white-space:nowrap">ANDREW発注書 .xlsm <small style="font-size:10px;font-weight:400;color:var(--muted)">(ANDREWチェック用・任意)</small></h3>
-    <div class="name" style="flex:1;min-width:120px">(未指定)</div>
-    <label class="pick" style="flex-shrink:0">参照...<input type="file" accept=".xlsm,.xlsx"></label>
-    <div class="hint" style="flex-basis:100%;margin:0">Commscope/ANDREW発注書(.xlsm)をD&amp;D → 数量表の品目と照合し、ANDREWチェックタブに✅/⚠️/✗を表示</div>
-    <div class="clr" hidden>クリア</div>
-  </div>
-
   <div class="opts">
     <label>モード
       <select id="mode">
@@ -819,13 +794,11 @@
   <div class="tabs" id="tabs" hidden>
     <button data-tab="summary" class="active">集計プレビュー</button>
     <button data-tab="category">カテゴリ別</button>
-    <button data-tab="andrew">ANDREWチェック</button>
     <button data-tab="unresolved">未登録一覧</button>
     <button data-tab="log">ログ</button>
   </div>
   <div class="tab-body active" data-tab="summary" id="tab-summary"></div>
   <div class="tab-body" data-tab="category" id="tab-category"></div>
-  <div class="tab-body" data-tab="andrew" id="tab-andrew"></div>
   <div class="tab-body" data-tab="unresolved" id="tab-unresolved"></div>
   <div class="tab-body" data-tab="log"><div class="log" id="log"></div></div>
 
@@ -860,10 +833,9 @@ const $$ = sel => Array.from(document.querySelectorAll(sel));
 // ============================================================
 // 入力スロット
 // ============================================================
-const slots = { antenna:null, cable:null, equipment:null, dict:null, andrew:null };
+const slots = { antenna:null, cable:null, equipment:null, dict:null };
 
 function classify(name) {
-  if (/\.xlsm$/i.test(name)) return 'andrew';
   if (/\.xlsx?$/i.test(name)) return 'dict';
   if (name.includes('アンテナ')) return 'antenna';
   if (name.includes('ケーブル')) return 'cable';
@@ -874,30 +846,10 @@ function classify(name) {
 function setSlot(key, file) {
   slots[key] = file;
   const dz = document.querySelector(`.dz[data-slot="${key}"]`);
-  if (!dz) return;
   dz.querySelector('.name').textContent = file ? file.name : '(未指定)';
   dz.classList.toggle('ok', !!file);
   dz.querySelector('.clr').hidden = !file;
-  if (key === 'andrew') {
-    window._andrewData = null; // キャッシュクリア
-    if (file) loadAndrew(file);
-    renderAndrewCheck();
-  } else {
-    refreshRun();
-  }
-}
-
-async function loadAndrew(file) {
-  try {
-    log('ok', `ANDREW発注書を読み込み中: ${file.name}`);
-    window._andrewData = await parseAndrew(file);
-    const { jumpers, antennas, combiners } = window._andrewData;
-    log('ok', `ANDREW: 固定長ジャンパー${jumpers.length}品 / アンテナ${antennas.length}品 / 共用器等${combiners.length}品`);
-    renderAndrewCheck();
-  } catch(e) {
-    log('err', `ANDREW読み込み失敗: ${e.message}`);
-    window._andrewData = null;
-  }
+  refreshRun();
 }
 
 function refreshRun() {
@@ -1504,10 +1456,9 @@ window._S = null;
 // ============================================================
 $('#clearBtn').addEventListener('click', () => {
   // スロットを空に
-  for (const key of ['antenna','cable','equipment','dict','andrew']) {
+  for (const key of ['antenna','cable','equipment','dict']) {
     setSlot(key, null);
   }
-  window._andrewData = null;
   // 出力・プレビュー・タブ・ログをクリア
   $('#dls').innerHTML = '';
   $('#tab-summary').innerHTML = '';
@@ -1581,7 +1532,6 @@ $('#runBtn').addEventListener('click', async () => {
 
     rebuildOutputs({ logHits:false });
     renderUnresolved(unresolved);
-    renderAndrewCheck();
     $('#tabs').hidden = false;
     log('ok', '完了');
   } catch (e) {
@@ -1604,7 +1554,6 @@ function rebuildOutputs() {
   S.category = category;
   rebuildDownloads();
   renderSummary(mergedRaw, S.mode, S.order);
-  renderAndrewCheck();
 }
 
 // DLボタンとTSVコピーだけ生成 (テーブル再描画なし)
@@ -1641,17 +1590,6 @@ function rebuildDownloads() {
   };
   mkDL(qtywb,  qtyName);
   mkDL(dictwb, 'mapping_dict.xlsx');
-  // ANDREWチェックボタン (発注書が読み込まれている場合のみ)
-  if (window._andrewData) {
-    const btn = document.createElement('button');
-    btn.className = 'ghost'; btn.textContent = '🔍 ANDREWチェック更新';
-    btn.addEventListener('click', () => {
-      $$('.tabs button').forEach(x => x.classList.toggle('active', x.dataset.tab==='andrew'));
-      $$('.tab-body').forEach(x => x.classList.toggle('active', x.dataset.tab==='andrew'));
-      renderAndrewCheck();
-    });
-    dls.appendChild(btn);
-  }
   mkCopy(() => {
     const tsvBlank = document.getElementById('tsvBlank')?.checked;
     const sorted = sortByOrder(merged.filter(r => !r.除外), S.order);
@@ -2315,229 +2253,6 @@ function renderCategoryView(merged, category) {
       } catch (e) { log('err', `クリップボード: ${e.message}`); }
     });
   });
-}
-
-// ============================================================
-// ANDREW 発注書チェック
-// ============================================================
-
-// CSV型式 → ANDREWケーブル系列対応表
-const COAX_MAP = {
-  'FSJ2-50':'FSJ2', 'FSJ2P-50-43B-A':'FSJ2',
-  'FSJ1-50':'FSJ1', 'FSJ1P-50-43B-A':'FSJ1',
-  'FSJ4-50':'FSJ4',
-  'LDF4-50':'LDF4', 'LDF4-50A':'LDF4',
-  'AVA5P-50':'AVA5P',
-};
-
-// ANDREW発注書(.xlsm) を SheetJS で読み込んで構造化
-async function parseAndrew(file) {
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type:'array', bookVBA: true });
-  const ws = wb.Sheets['発注書'];
-  if (!ws) throw new Error('「発注書」シートが見つかりません');
-  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
-
-  const jumpers = [];    // 固定長ジャンパー（行38-890）
-  const antennas = [];   // アンテナ品目
-  const combiners = [];  // 共用器・アクセサリ品目
-  const customCables = new Set(['FSJ1','FSJ2','FSJ4','LDF4']); // カスタムオーダー対応型式
-
-  let section = 'jumper';
-
-  for (let i = 37; i < rows.length; i++) {
-    const r = rows[i];
-    // 発注書の実際の列構成: C列(idx2)=品名/説明, E列(idx4)=製品型式
-    const c0 = String(r[2] || '').trim();
-    const c1 = String(r[4] || '').trim();
-
-    // セクション切り替え (【...】は必ずC列=c0に入る)
-    if (c0.startsWith('【') && c0.includes('】')) {
-      if (c0.includes('メインケーブル')) section = 'custom';
-      else if (c0.includes('アンテナ')) section = 'antenna';
-      else if (c0.includes('共用器') || c0.includes('アクセサリ') || c0.includes('AISG') || c0.includes('取付金具')) section = 'combiner';
-      // ジャンパー内サブセクション見出しはそのまま continue (section = 'jumper' 維持)
-      continue;
-    }
-    // 空行・フォーミュラ行・ラベル行スキップ
-    if (!c0 || c0.startsWith('=')) continue;
-    if (!c1 || c1.startsWith('=') || !/[A-Z0-9]/.test(c1)) continue;
-
-    if (section === 'jumper') {
-      // C列=品名, E列=製品型式
-      const lenM = (() => { const m = c0.match(/(\d+\.?\d*)\s*m\b/i); return m ? parseFloat(m[1]) : null; })();
-      if (lenM === null) continue;
-      const coaxFamily = c0.includes('FSJ2') || c1.startsWith('F2') ? 'FSJ2'
-                       : c0.includes('FSJ4') || c1.startsWith('F4') ? 'FSJ4'
-                       : c0.includes('FSJ1') || c1.startsWith('F1') ? 'FSJ1'
-                       : c0.includes('LDF4') || c1.startsWith('L4') ? 'LDF4' : '';
-      if (!coaxFamily) continue;
-      jumpers.push({
-        rowIdx: i, desc: c0, code: c1, lenM, coaxFamily,
-        has43:  c0.includes('4.3'),
-        hasDIN: c0.includes('DIN') || c0.includes('7/16'),
-        hasN:   c0.includes('N型'),
-      });
-
-    } else if (section === 'antenna') {
-      antennas.push({ rowIdx: i, desc: c0, code: c1 });
-
-    } else if (section === 'combiner') {
-      combiners.push({ rowIdx: i, desc: c0, code: c1 });
-    }
-  }
-
-  return { jumpers, antennas, combiners, customCables, buf };
-}
-
-// 数量表の1行をANDREWデータと照合して { status, msg } を返す
-function checkAndrewRow(r, andrewData) {
-  if (!andrewData) return null;
-  const { jumpers, antennas, combiners, customCables } = andrewData;
-  const cat = r.カテゴリ;
-
-  if (cat === 'cable') {
-    // 型式からケーブル系列を特定
-    let coaxFamily = '';
-    for (const [k, v] of Object.entries(COAX_MAP)) {
-      if ((r.型式 || '').includes(k)) { coaxFamily = v; break; }
-    }
-    if (!coaxFamily) return { status: '-', msg: '型式からケーブル系列を特定できず' };
-
-    const lenM = Number(r.ケーブル長) || 0;
-    const c1 = r.端子1 || '';
-    const c2 = r.端子2 || '';
-    const need43  = c1.includes('4.3') || c2.includes('4.3');
-    const needDIN = /din/i.test(c1) || /din/i.test(c2);
-    const needN   = c1.includes('N型') || c2.includes('N型');
-
-    // 固定長ジャンパーリストを照合
-    const match = jumpers.find(j => {
-      if (j.coaxFamily !== coaxFamily) return false;
-      if (j.lenM !== lenM) return false;
-      if (need43  && !j.has43)  return false;
-      if (needDIN && !j.hasDIN) return false;
-      if (needN   && !j.hasN)   return false;
-      return true;
-    });
-    if (match) return { status: '✅', msg: match.code, rowIdx: match.rowIdx };
-
-    // 固定長になければカスタムオーダー可否確認
-    if (customCables.has(coaxFamily)) {
-      return { status: '⚠️', msg: `固定品なし → ${coaxFamily}カスタム注文可 (発注書行892+)` };
-    }
-    return { status: '✗', msg: '発注書に該当なし' };
-  }
-
-  if (cat === 'antenna') {
-    const keys = [(r.型式||'').split(';'), (r.機器表示名||'').split(';')]
-      .flat().map(s => s.trim()).filter(Boolean);
-    for (const key of keys) {
-      const hit = antennas.find(a => a.code === key || a.code.includes(key) || key.includes(a.code));
-      if (hit) return { status: '✅', msg: hit.code, rowIdx: hit.rowIdx };
-    }
-    return { status: '✗', msg: 'アンテナリストに未掲載' };
-  }
-
-  if (cat === 'equipment') {
-    const keys = [(r.型式||'').split(';'), (r.機器表示名||'').split(';')]
-      .flat().map(s => s.trim()).filter(Boolean);
-    for (const key of keys) {
-      const hit = combiners.find(c => c.code === key);
-      if (hit) return { status: '✅', msg: hit.code, rowIdx: hit.rowIdx };
-    }
-    return { status: '-', msg: '共用器リストに未掲載 (ANDREW非取扱の可能性)' };
-  }
-
-  return { status: '-', msg: '' };
-}
-
-// ANDREWチェックタブを描画
-function renderAndrewCheck() {
-  const el = $('#tab-andrew');
-  if (!el) return;
-  const S = window._S;
-
-  if (!S) {
-    el.innerHTML = '<p style="color:var(--muted);padding:16px">先に数量表を実行してください</p>';
-    return;
-  }
-
-  if (!window._andrewData) {
-    el.innerHTML = `
-      <div style="padding:16px 0">
-        <p style="color:var(--muted);font-size:13px;margin:0 0 12px">
-          ANDREW/Commscope発注書(.xlsm)を上段の<b>「ANDREW発注書スロット」</b>にD&Dすると、<br>
-          数量表の各品目が発注書に掲載されているか確認できます。
-        </p>
-        <table style="font-size:12px;border-collapse:collapse;color:var(--fg)">
-          <tr><td style="padding:4px 12px 4px 0">✅</td><td>固定長ジャンパーリストに掲載あり（型式・長さ・コネクタが一致）</td></tr>
-          <tr><td style="padding:4px 12px 4px 0">⚠️</td><td>固定品なし → カスタムオーダー可（発注書行892+ セクションで対応）</td></tr>
-          <tr><td style="padding:4px 12px 4px 0">✗</td><td>発注書に未掲載（ANDREW非取扱の可能性）</td></tr>
-          <tr><td style="padding:4px 12px 4px 0">-</td><td>判定対象外（型式不明・カテゴリ判定なし）</td></tr>
-        </table>
-      </div>`;
-    return;
-  }
-
-  const merged = S.mode === 'agg' ? collapseSectors(S.mergedRaw) : S.mergedRaw;
-  const sorted = sortByOrder(merged.filter(r => !r.除外), S.order);
-  const results = sorted.map(r => ({ ...r, _aw: checkAndrewRow(r, window._andrewData) }));
-
-  const ok   = results.filter(r => r._aw?.status === '✅').length;
-  const warn = results.filter(r => r._aw?.status === '⚠️').length;
-  const ng   = results.filter(r => r._aw?.status === '✗').length;
-  const skip = results.filter(r => !r._aw || r._aw.status === '-').length;
-
-  let html = `
-    <div style="display:flex;gap:16px;margin:8px 0 14px;flex-wrap:wrap;font-size:13px;align-items:center">
-      <span style="color:var(--ok)">✅ 掲載あり: <b>${ok}</b></span>
-      <span style="color:var(--warn)">⚠️ カスタム: <b>${warn}</b></span>
-      <span style="color:var(--err)">✗ 未掲載: <b>${ng}</b></span>
-      <span style="color:var(--muted)">- 対象外: ${skip}</span>
-      <span style="color:var(--muted);font-size:11px">読込: ${esc(slots.andrew?.name || '')}</span>
-    </div>`;
-
-  for (const kind of ['新設', '撤去']) {
-    const rows = results.filter(r => r.工種 === kind);
-    if (!rows.length) continue;
-    const cls = kind === '新設' ? 'new' : 'rem';
-    html += `<h3 style="margin:12px 0 4px 0"><span class="pill ${cls}">${kind}</span>${rows.length}品目</h3>`;
-    html += `<table class="summary"><tr>
-      <th>設備種別名称</th><th>項目</th><th>単位</th>
-      <th style="text-align:right">数量</th>
-      <th style="text-align:center">チェック</th>
-      <th>型式 / 備考</th>
-      <th style="text-align:center">発注書行</th>
-      <th style="text-align:right">発注数</th></tr>`;
-    let prevEq = null;
-    for (const r of rows) {
-      const eq = r.設備種別名称 || '';
-      const sep = (prevEq !== null && prevEq !== eq) ? ' style="border-top:2px solid var(--border)"' : '';
-      const a = r._aw;
-      const stCol = a?.status === '✅' ? 'color:var(--ok)' :
-                    a?.status === '⚠️' ? 'color:var(--warn)' :
-                    a?.status === '✗'  ? 'color:var(--err)' : 'color:var(--muted)';
-      const excelRow = (a?.rowIdx != null) ? `<span class="aw-row-badge">${a.rowIdx + 1}行</span>` : '';
-      const qtyInput = (a?.status === '✅' && a?.rowIdx != null)
-        ? `<input type="number" class="aw-qty" data-rowidx="${a.rowIdx}" min="0" step="1" value="${r.合計 ?? ''}">`
-        : '';
-      html += `<tr class="${cls}"${sep}>
-        <td><span class="pill">${esc(eq || '-')}</span></td>
-        <td>${esc(r.項目)}</td>
-        <td>${esc(r.単位)}</td>
-        <td style="text-align:right">${r.合計}</td>
-        <td style="text-align:center;font-size:15px;${stCol}">${a ? a.status : '-'}</td>
-        <td style="font-size:11px;font-family:var(--mono);color:var(--muted)">${a ? esc(a.msg) : ''}</td>
-        <td style="text-align:center">${excelRow}</td>
-        <td style="text-align:right">${qtyInput}</td>
-      </tr>`;
-      prevEq = eq;
-    }
-    html += `</table>`;
-  }
-
-  el.innerHTML = html;
 }
 
 function esc(s) { return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
