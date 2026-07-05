@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>樹抽出 数量表ジェネレータ v0.6</title>
+<title>樹抽出 数量表ジェネレータ v0.9</title>
 <!-- ローカル処理のみ。CSV/xlsx は外部送信されません。 -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -136,6 +136,34 @@
     margin:0 0 10px 0; font-size:12px; color:var(--accent);
     letter-spacing:.05em; font-style:italic; opacity:.85;
   }
+
+  /* --- 変更履歴バー --- */
+  details.changelog-bar {
+    margin:0 0 10px 0; font-size:11px; color:var(--muted);
+  }
+  details.changelog-bar summary {
+    display:inline-flex; align-items:center; gap:4px;
+    cursor:pointer; user-select:none; list-style:none;
+    padding:2px 7px; border-radius:10px;
+    border:1px solid var(--border); color:var(--muted);
+    background:transparent; transition:background .15s;
+  }
+  details.changelog-bar summary::-webkit-details-marker { display:none; }
+  details.changelog-bar summary::before {
+    content:'▶'; font-size:8px; transition:transform .15s;
+  }
+  details.changelog-bar[open] summary::before { transform:rotate(90deg); }
+  details.changelog-bar summary:hover { background:var(--panel2); }
+  details.changelog-bar .cl-body {
+    margin:6px 0 0 4px; padding:8px 12px;
+    border-left:2px solid var(--border);
+    display:flex; flex-direction:column; gap:3px;
+  }
+  details.changelog-bar .cl-row { display:flex; gap:8px; align-items:baseline; }
+  details.changelog-bar .cl-ver {
+    font-weight:600; color:var(--accent); min-width:32px; flex-shrink:0;
+  }
+  details.changelog-bar .cl-desc { color:var(--fg); }
   .help-btn {
     position:fixed; top:16px; right:20px; z-index:50;
     width:34px; height:34px; border-radius:50%;
@@ -338,6 +366,8 @@
   table.summary tr.row-group td { background:rgba(79,179,255,.04); }
   table.summary tr.dragsrc { opacity:.5; }
   table.summary tr.droptgt td { box-shadow:inset 0 0 0 2px var(--accent); }
+  table.summary tr.drop-above > td { box-shadow:0 -3px 0 var(--accent) !important; }
+  table.summary tr.drop-below > td { box-shadow:0  3px 0 var(--accent) !important; }
   table.summary tr[draggable="true"] td:first-child {
     cursor:grab;
   }
@@ -355,8 +385,31 @@
 <body>
   <button class="help-btn" id="helpBtn" title="取説" aria-label="取説を開く">?</button>
 
-  <h1>樹抽出 数量表ジェネレータ <small>v0.6 · ローカル処理のみ</small></h1>
+  <h1>樹抽出 数量表ジェネレータ <small>v0.9 · ローカル処理のみ</small></h1>
   <p class="tagline">人間がCSVを読む時代は、そろそろ終わっていい。</p>
+
+  <details class="changelog-bar">
+    <summary>変更履歴</summary>
+    <div class="cl-body">
+      <div class="cl-row"><span class="cl-ver">v0.9</span><span class="cl-desc">TSVコピー時に空白行を挿入するチェックボックス追加 (デフォルトON)。集計プレビュー・カテゴリ別・数量表の全コピーに対応。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.8.5</span><span class="cl-desc">辞書: 終端装置を「光・伝送装置」カテゴリに統合 (光・伝送装置タブにまとめて表示)。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.8.4</span><span class="cl-desc">辞書: カテゴリ「伝送装置」を「光・伝送装置」と「終端装置」に分割 (category シート更新)。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.8.3</span><span class="cl-desc">数量表xlsx に「カテゴリ別」シートを追加 (数量表・カテゴリ別の2シート構成)。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.8.2</span><span class="cl-desc">並び替えD&amp;D: 他の設備種別の順序が崩れるバグ修正。グループ解除後に行が消えるバグ修正。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.8.1</span><span class="cl-desc">カテゴリ別タブでも行D&amp;D並び替えに対応（カテゴリ別は上下どちらでもドロップで並び替え）。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.8</span><span class="cl-desc">集計プレビューで行をD&amp;Dして並び替え可能に。行間にドロップ→並び替え(辞書反映)、行中央にドロップ→グループ合流(従来)。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.7.2</span><span class="cl-desc">ブレーカーを最大数値降順でソート (NFB 100AF → 30AF)。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.7.1</span><span class="cl-desc">カテゴリ別タブでも行順ソートが反映されていなかったバグ修正。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.7</span><span class="cl-desc">設備種別内の行並び順に対応。mapping に <code>行順</code> 列追加。ケーブルは未指定時に数値降順 (14sq→8sq→5.5sq)。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.6</span><span class="cl-desc">✕除外の型式キャッチオール波及バグを根本修正 (mergedRaw も対象キーのみ書き換え)。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.5</span><span class="cl-desc">✕除外がキャッチオール行を誤除外するバグ修正 (mapping 側)。GPS ケーブルにm数表示追加。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.4</span><span class="cl-desc">表示名トークンに <code>{name}</code> (機器表示名) を追加。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.3</span><span class="cl-desc">category シートに表示順列を追加。カテゴリの並び順を数字で明示指定可能に。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.2</span><span class="cl-desc">カテゴリ別タブ追加。TSV コピー時に除外済み行が含まれるバグ修正。</span></div>
+      <div class="cl-row"><span class="cl-ver">v0.1</span><span class="cl-desc">初版。CSV3本入力・辞書連携・数量表出力・行操作 (除外/グループ統合/D&amp;D)。</span></div>
+    </div>
+  </details>
+
   <p class="lead">
     樹プロパティCSV3本 + 辞書xlsxをD&amp;D → 数量表.xlsx を生成。
     データはブラウザ内でのみ処理され、外部送信されません。
@@ -393,7 +446,7 @@
         <!-- 本文 -->
         <div class="manual-content" id="manualContent">
           <h2>樹抽出 数量表ジェネレータ 説明書</h2>
-          <p class="subtitle">v0.6 · ローカル処理のみ · 外部送信なし</p>
+          <p class="subtitle">v0.9 · ローカル処理のみ · 外部送信なし</p>
 
           <section id="m-quick">
             <h3>1. クイックスタート</h3>
@@ -473,6 +526,7 @@
               <tr><td>記事欄</td><td>固定文言 (任意)</td><td><code>他社</code> など</td></tr>
               <tr><td>除外フラグ</td><td><code>除外</code> と書けば集計から外す</td><td>空 or <code>除外</code></td></tr>
               <tr><td>除外上限m</td><td>数値を入れると、除外フラグ=除外でもケーブル長がこの値を超える行は除外せず通常項目として表示 (空欄なら長さ無条件で除外)</td><td>空 or <code>10</code></td></tr>
+              <tr><td>行順</td><td>同一設備種別内での表示順 (数値昇順)。空欄時はケーブルが数値降順 (14sq→8sq→5.5sq の順)、それ以外は項目名辞書順</td><td>空 or <code>1</code> / <code>2</code> / <code>3</code></td></tr>
               <tr><td>出現回数</td><td>実行時に自動更新される統計列</td><td>(自動)</td></tr>
             </table>
             <p><b>マッチ順</b>: 機器表示名 → 型式 → 設備=&lt;設備種別名称&gt;。最初にヒットしたものが採用される。<br>
@@ -652,6 +706,10 @@
             依存ライブラリ: PapaParse (MIT) / SheetJS (Apache 2.0)。</p>
             <h4>変更履歴</h4>
             <ul>
+              <li>v0.8: 集計プレビューで行D&amp;Dによる並び替えに対応。行間ドロップ→並び替え(辞書の行順/order更新)、行中央ドロップ→グループ合流(従来動作)。</li>
+              <li>v0.7.2: ブレーカーを最大数値降順でソート (NFB 100AF → 30AF)。</li>
+              <li>v0.7.1: カテゴリ別タブでも行順ソートが反映されていなかったバグ修正。</li>
+              <li>v0.7: 設備種別内のアイテム並び順に対応。mapping シートに <code>行順</code> 列追加。ケーブルは <code>行順</code> 未指定時に数値降順 (14sq→8sq→5.5sq)。</li>
               <li>v0.6: ✕除外の型式キャッチオール波及バグを根本修正 (mergedRaw書き換えも対象キーのみに限定)。</li>
               <li>v0.5: ✕除外がキャッチオール行を誤って除外するバグ修正 (mapping側)。GPSケーブルにメートル数表示を追加。</li>
               <li>v0.4: 表示名トークンに <code>{name}</code> (機器表示名) を追加。</li>
@@ -710,6 +768,7 @@
     </label>
     <label><input type="checkbox" id="pink"> 桃1 (他社) も含める</label>
     <label><input type="checkbox" id="autolearn" checked> 未登録品目を辞書に自動追記</label>
+    <label><input type="checkbox" id="tsvBlank" checked> TSVコピー時に空白行を挿入</label>
     <span style="flex:1"></span>
     <button class="ghost" id="clearBtn" type="button" title="入力ファイル・出力・プレビュー・選択をすべて消す">⟲ クリア</button>
     <button class="run" id="runBtn" disabled>実行</button>
@@ -746,7 +805,7 @@
   <details>
     <summary>辞書フォーマット (mapping_dict.xlsx)</summary>
     <pre>シート [mapping]:
-  カテゴリ | マッチキー | 表示名 | 単位 | 記事欄 | 除外フラグ | 除外上限m | 出現回数
+  カテゴリ | マッチキー | 表示名 | 単位 | 記事欄 | 除外フラグ | 除外上限m | 行順 | 出現回数
   マッチ順: 機器表示名 → 型式 → 設備=&lt;設備種別名称&gt;
   表示名のトークン: {len}, {conn1}, {conn2}, {model}
   例: cable | 設備=給電線 | {model},{len}m,({conn1}/{conn2}) | 本 | | | |
@@ -960,7 +1019,7 @@ function readCsv(file) {
 // ============================================================
 // 辞書 xlsx 読み込み
 // ============================================================
-const DICT_COLS = ['カテゴリ','マッチキー','表示名','単位','記事欄','除外フラグ','除外上限m','出現回数'];
+const DICT_COLS = ['カテゴリ','マッチキー','表示名','単位','記事欄','除外フラグ','除外上限m','行順','出現回数'];
 const EXTRAS_COLS = ['工種','項目','単位','合計','記事欄'];
 const CATEGORY_COLS = ['設備種別名称','カテゴリ','表示順'];
 
@@ -1066,7 +1125,19 @@ function expandTemplate(tmpl, len, c1, c2, model, name) {
 
 function defaultUnit(cat) { return {antenna:'本', cable:'本', equipment:'台'}[cat] || '個'; }
 
+// 項目名から先頭の数値を取り出す (IV-14sq → 14, CV-5.5sq → 5.5, テキスト → NaN)
+function extractLeadingNum(s) {
+  const m = String(s || '').match(/(\d+\.?\d*)/);
+  return m ? parseFloat(m[1]) : NaN;
+}
+// 文字列中の最大数値を返す (NFB 3P 100AF/50AT → 100)
+function extractMaxNum(s) {
+  const m = String(s || '').match(/\d+\.?\d*/g);
+  return m ? Math.max(...m.map(parseFloat)) : NaN;
+}
+
 // 設備種別名称を優先キーにするソート (辞書 order シート / UIテキストエリア由来)
+// ソート優先順: ①設備種別 ②工種(新設→撤去) ③行順(昇順,明示指定優先) ④数値降順(ケーブル/ブレーカー) ⑤項目名辞書順
 function sortByOrder(rows, order) {
   const idx = new Map((order||[]).map((k, i) => [k, i]));
   return rows.slice().sort((a, b) => {
@@ -1078,6 +1149,22 @@ function sortByOrder(rows, order) {
     const kindOrder = { 新設:0, 撤去:1 };
     const ja = kindOrder[a.工種] ?? 9; const jb = kindOrder[b.工種] ?? 9;
     if (ja !== jb) return ja - jb;
+    // 行順 明示指定 (数値昇順、未指定は後回し)
+    const oa = parseFloat(a.行順); const ob = parseFloat(b.行順);
+    const ha = !isNaN(oa); const hb = !isNaN(ob);
+    if (ha && hb) return oa - ob;
+    if (ha) return -1;
+    if (hb) return 1;
+    // ケーブルは先頭数値降順 (IV-14sq > IV-8sq > IV-5.5sq)
+    if (a.カテゴリ === 'cable' && b.カテゴリ === 'cable') {
+      const na = extractLeadingNum(a.項目); const nb = extractLeadingNum(b.項目);
+      if (!isNaN(na) && !isNaN(nb) && na !== nb) return nb - na;
+    }
+    // ブレーカーは最大数値降順 (NFB 100AF > NFB 30AF)
+    if (ka === 'ブレーカー' && kb === 'ブレーカー') {
+      const na = extractMaxNum(a.項目); const nb = extractMaxNum(b.項目);
+      if (!isNaN(na) && !isNaN(nb) && na !== nb) return nb - na;
+    }
     return (a.項目||'').localeCompare(b.項目||'');
   });
 }
@@ -1158,7 +1245,8 @@ function applyDict(agg, mapping, autoLearn) {
                 合計:r.数量, 記事欄:note, 除外:excluded, 辞書ヒット:resolved,
                 機器表示名:r.機器表示名, 型式:r.型式, ケーブル長:r.ケーブル長,
                 端子1:r.conn1, 端子2:r.conn2,
-                設備種別名称:r.設備種別名称||'' });
+                設備種別名称:r.設備種別名称||'',
+                行順: hit ? (hit['行順'] ?? '') : '' });
   }
 
   // 同一 (カテゴリ,工種,項目,単位,記事欄,設備種別名称) を合算
@@ -1236,9 +1324,8 @@ function bookSheetToTSV(wb, sheetName) {
   return XLSX.utils.sheet_to_csv(ws, { FS: '\t', RS: '\n', blankrows: true });
 }
 
-function writeQuantityTable(merged, extras, order) {
-  // 単一シート「数量表」: まず新設をすべて列挙 → 空行 → 撤去をすべて列挙 → 空行 → extras
-  // 各工種ブロック内では「設備種別名称」が変わるたびに空行を挟む。
+function writeQuantityTable(merged, extras, order, category) {
+  // シート1「数量表」: まず新設をすべて列挙 → 空行 → 撤去をすべて列挙 → 空行 → extras
   const df = sortByOrder(merged.filter(r => !r.除外), order);
   const hdr = ['設備種別名称','項目','工種','単位','合計','記事欄'];
   const rows = [hdr];
@@ -1247,7 +1334,6 @@ function writeQuantityTable(merged, extras, order) {
   for (const kind of ['新設', '撤去']) {
     const sub = df.filter(r => r.工種 === kind);
     if (!sub.length) continue;
-    // 工種ブロックの間に空行
     if (rows.length > 1) rows.push(blank.slice());
     let prevEq = null;
     for (const r of sub) {
@@ -1268,7 +1354,45 @@ function writeQuantityTable(merged, extras, order) {
       }
     }
   }
-  return aoaToBook([['数量表', rows]]);
+
+  // シート2「カテゴリ別」
+  const { map: catMap, order: catOrder } = buildCategoryIndex(category || []);
+  const catOf = r => catMap.get(r.設備種別名称||'') || '未分類';
+  const rankOf = c => { const i = catOrder.indexOf(c); return i < 0 ? catOrder.length : i; };
+  const catHdr = ['カテゴリ','設備種別名称','項目','工種','単位','合計','記事欄'];
+  const catRows = [catHdr];
+  const catBlank = ['','','','','','',''];
+
+  for (const kind of ['新設', '撤去']) {
+    const kindRows = df.filter(r => r.工種 === kind);
+    if (!kindRows.length) continue;
+    if (catRows.length > 1) catRows.push(catBlank.slice());
+
+    const byCat = new Map();
+    for (const r of kindRows) {
+      const c = catOf(r);
+      if (!byCat.has(c)) byCat.set(c, []);
+      byCat.get(c).push(r);
+    }
+    const cats = [...byCat.keys()].sort((a, b) => rankOf(a) - rankOf(b));
+
+    let firstCat = true;
+    for (const c of cats) {
+      if (!firstCat) catRows.push(catBlank.slice());
+      firstCat = false;
+      let prevEq = null;
+      for (const r of byCat.get(c)) {
+        const eq = r.設備種別名称 || '';
+        const catCell  = prevEq === null ? c : '';
+        const eqCell   = (prevEq === null || prevEq !== eq) ? eq : '';
+        if (prevEq !== null && prevEq !== eq) catRows.push(catBlank.slice());
+        catRows.push([catCell, eqCell, r.項目, r.工種, r.単位, r.合計, r.記事欄]);
+        prevEq = eq;
+      }
+    }
+  }
+
+  return aoaToBook([['数量表', rows], ['カテゴリ別', catRows]]);
 }
 
 function writeDict(mapping, extras, order, category) {
@@ -1436,7 +1560,7 @@ function rebuildOutputs() {
 function rebuildDownloads() {
   const S = window._S; if (!S) return;
   const merged = (S.mode === 'agg') ? collapseSectors(S.mergedRaw) : S.mergedRaw;
-  const qtywb  = writeQuantityTable(merged, S.extras, S.order);
+  const qtywb  = writeQuantityTable(merged, S.extras, S.order, S.category);
   const dictwb = writeDict(S.mapping, S.extras, S.order, S.category);
 
   const dls = $('#dls'); dls.innerHTML = '';
@@ -1451,11 +1575,12 @@ function rebuildDownloads() {
     a.href = url; a.download = name; a.textContent = `↓ ${name}`;
     dls.appendChild(a);
   };
-  const mkCopy = (tsv, label) => {
+  const mkCopy = (getTsv, label) => {
     const b = document.createElement('button');
     b.className = 'ghost'; b.textContent = `📋 ${label}をコピー`;
     b.addEventListener('click', async () => {
       try {
+        const tsv = typeof getTsv === 'function' ? getTsv() : getTsv;
         await navigator.clipboard.writeText(tsv);
         b.textContent = `✓ コピー済`;
         setTimeout(() => b.textContent = `📋 ${label}をコピー`, 1500);
@@ -1465,8 +1590,29 @@ function rebuildDownloads() {
   };
   mkDL(qtywb,  qtyName);
   mkDL(dictwb, 'mapping_dict.xlsx');
-  mkCopy(bookSheetToTSV(qtywb, '数量表'), '数量表');
-  renderCategoryView(merged, S.category);
+  mkCopy(() => {
+    const tsvBlank = document.getElementById('tsvBlank')?.checked;
+    const sorted = sortByOrder(merged.filter(r => !r.除外), S.order);
+    const lines = ['設備種別名称\t項目\t工種\t単位\t合計\t記事欄'];
+    let lastKey = null;
+    for (const r of sorted) {
+      const key = (r.設備種別名称||'') + '' + (r.工種||'');
+      if (tsvBlank && lastKey !== null && lastKey !== key) lines.push('');
+      lines.push([r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄].join('\t'));
+      lastKey = key;
+    }
+    if (S.extras && S.extras.length) {
+      const exs = S.extras.filter(x => String(x['項目']||'').trim());
+      if (exs.length) {
+        if (tsvBlank) lines.push('');
+        for (const x of exs) {
+          lines.push(['', x['項目'], x['工種'], x['単位'], Number(x['合計'])||0, x['記事欄']].join('\t'));
+        }
+      }
+    }
+    return lines.join('\n');
+  }, '数量表');
+  renderCategoryView(sortByOrder(merged, S.order), S.category);
 }
 
 // 行シグネチャ (除外/選択トグルの同定キー)
@@ -1563,10 +1709,17 @@ function renderSummary(mergedRaw, defaultMode, order) {
       const S = window._S; if (!S) return;
       const base = (sub==='agg') ? collapseSectors(S.mergedRaw) : S.mergedRaw;
       const rows = sortByOrder(base, S.order).filter(r => r.工種===kind && !r.除外);
-      const tsv = ['設備種別名称\t項目\t工種\t単位\t合計\t記事欄',
-        ...rows.map(r => [r.設備種別名称||'', r.項目, r.工種, r.単位, r.合計, r.記事欄].join('\t'))].join('\n');
+      const tsvBlank = document.getElementById('tsvBlank')?.checked;
+      const lines = ['設備種別名称\t項目\t工種\t単位\t合計\t記事欄'];
+      let lastEq = null;
+      for (const r of rows) {
+        const eq = r.設備種別名称||'';
+        if (tsvBlank && lastEq !== null && lastEq !== eq) lines.push('');
+        lines.push([eq, r.項目, r.工種, r.単位, r.合計, r.記事欄].join('\t'));
+        lastEq = eq;
+      }
       try {
-        await navigator.clipboard.writeText(tsv);
+        await navigator.clipboard.writeText(lines.join('\n'));
         const orig = btn.textContent;
         btn.textContent = '✓ コピー済';
         setTimeout(() => btn.textContent = orig, 1500);
@@ -1689,11 +1842,19 @@ function renderSummary(mergedRaw, defaultMode, order) {
         .concat((t.型式||'').split(';'))
         .map(s => s.trim()).filter(Boolean);
       for (const k of keys) {
-        const hit = window._S.mapping.find(m => m['カテゴリ']===t.カテゴリ && String(m['マッチキー'])===String(k));
-        if (hit && hit['表示名']) {
+        const mp = window._S.mapping;
+        const idx = mp.findIndex(m => m['カテゴリ']===t.カテゴリ && String(m['マッチキー'])===String(k));
+        if (idx < 0) continue;
+        const hit = mp[idx];
+        if (!hit['表示名']) continue;
+        // 表示名以外に設定値がないエントリはまるごと削除してcatch-allに戻す
+        const hasOtherData = hit['除外フラグ'] || hit['記事欄'] || hit['除外上限m'] || hit['行順'];
+        if (!hasOtherData) {
+          mp.splice(idx, 1);
+        } else {
           hit['表示名'] = '';
-          cleared++;
         }
+        cleared++;
       }
     }
     window._S.selection.clear();
@@ -1719,29 +1880,46 @@ function renderSummary(mergedRaw, defaultMode, order) {
     });
     tr.addEventListener('dragend', () => tr.classList.remove('dragsrc'));
     tr.addEventListener('dragover', e => {
-      // 自分自身/別カテゴリは弾く
-      const srcCat = (e.dataTransfer.types.includes('application/json') || e.dataTransfer.types.includes('text/plain'))
-        ? tr.dataset.cat : null; // dragover時は payload を読めないのでカテゴリ整合は drop で判定
-      if (srcCat === null) return;
+      if (!e.dataTransfer.types.includes('application/json') && !e.dataTransfer.types.includes('text/plain')) return;
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'link';
-      tr.classList.add('droptgt');
+      // カーソルが行の上30%→上挿入, 下30%→下挿入, 中40%→グループ合流
+      const rect = tr.getBoundingClientRect();
+      const ratio = (e.clientY - rect.top) / rect.height;
+      tr.classList.remove('droptgt', 'drop-above', 'drop-below');
+      if (ratio < 0.3) {
+        tr.classList.add('drop-above'); tr.dataset.dropMode = 'before';
+        e.dataTransfer.dropEffect = 'move';
+      } else if (ratio > 0.7) {
+        tr.classList.add('drop-below'); tr.dataset.dropMode = 'after';
+        e.dataTransfer.dropEffect = 'move';
+      } else {
+        tr.classList.add('droptgt'); tr.dataset.dropMode = 'merge';
+        e.dataTransfer.dropEffect = 'link';
+      }
     });
-    tr.addEventListener('dragleave', () => tr.classList.remove('droptgt'));
+    tr.addEventListener('dragleave', () => tr.classList.remove('droptgt', 'drop-above', 'drop-below'));
     tr.addEventListener('drop', e => {
       e.preventDefault();
-      tr.classList.remove('droptgt');
+      const mode = tr.dataset.dropMode || 'merge';
+      tr.classList.remove('droptgt', 'drop-above', 'drop-below');
       let raw = '';
       try { raw = e.dataTransfer.getData('application/json'); } catch(_){}
       if (!raw) try { raw = e.dataTransfer.getData('text/plain'); } catch(_){}
       if (!raw) return;
       let p; try { p = JSON.parse(raw); } catch(_) { return; }
       if (p.sig === tr.dataset.sig) return; // 同一行は無視
+
+      if (mode !== 'merge') {
+        // ---- 並び替えモード ----
+        applyReorder(p.sig, tr.dataset.sig, mode === 'before');
+        log('ok', `並び替え: 「${p.item}」→「${tr.dataset.item}」の${mode==='before'?'上':'下'}に移動。辞書に反映済。`);
+        return;
+      }
+
+      // ---- グループ合流モード (既存) ----
       if (p.cat !== tr.dataset.cat) { log('err', `D&D: カテゴリ不一致 (${p.cat} → ${tr.dataset.cat})`); return; }
-      // 対象行の項目に source のキー群を合流
       const display = tr.dataset.item;
       const unit = tr.dataset.unit || p.unit || defaultUnit(p.cat);
-      // 対象行 (tr) の機器表示名/型式 もまとめてグループに編入 (両方を同一表示名に登録 → 合算)
       const tgtKeys = (tr.dataset.keys||'').split('|||').filter(Boolean);
       const allKeys = Array.from(new Set([...p.keys, ...tgtKeys]));
       upsertDisplayName(p.cat, allKeys, display, unit);
@@ -1750,6 +1928,91 @@ function renderSummary(mergedRaw, defaultMode, order) {
       rebuildOutputs();
     });
   });
+}
+
+// ============================================================
+// 並び替え D&D
+// ============================================================
+function applyReorder(srcSig, tgtSig, before, displayRowsOverride) {
+  const S = window._S;
+  // 現在表示中のサブタブの行配列を取得 (カテゴリ別タブからの呼び出しはオーバーライドを使用)
+  let displayRows;
+  if (displayRowsOverride) {
+    displayRows = displayRowsOverride;
+  } else {
+    const activeKey = document.querySelector('.sub-body.active')?.dataset.sub || 'agg';
+    displayRows = (S.lastDisplayed && S.lastDisplayed[activeKey]) || sortByOrder(S.mergedRaw, S.order);
+  }
+
+  const srcRow = displayRows.find(r => rowSig(r) === srcSig);
+  const tgtRow = displayRows.find(r => rowSig(r) === tgtSig);
+  if (!srcRow || !tgtRow) return;
+
+  const srcEq = srcRow.設備種別名称 || '';
+  const tgtEq = tgtRow.設備種別名称 || '';
+
+  if (srcEq === tgtEq) {
+    // 同一設備種別内 → mapping の 行順 を更新
+    reorderWithinGroup(srcRow, tgtRow, before, displayRows);
+  } else {
+    // 設備種別をまたぐ → order シートの並び順を更新
+    reorderGroups(srcEq, tgtEq, before, displayRows);
+  }
+  S.dirty = true;
+  rebuildOutputs();
+}
+
+// 同一設備種別名称内で srcRow を tgtRow の前/後に移動し mapping の 行順 を1,2,3…で再割り当て
+function reorderWithinGroup(srcRow, tgtRow, before, displayRows) {
+  const eq = srcRow.設備種別名称 || '';
+  const kind = srcRow.工種;
+  let groupRows = displayRows.filter(r => (r.設備種別名称||'') === eq && r.工種 === kind);
+  groupRows = groupRows.filter(r => rowSig(r) !== rowSig(srcRow));
+  const tgtIdx = groupRows.findIndex(r => rowSig(r) === rowSig(tgtRow));
+  if (tgtIdx < 0) return;
+  groupRows.splice(before ? tgtIdx : tgtIdx + 1, 0, srcRow);
+
+  const mp = window._S.mapping;
+  groupRows.forEach((r, i) => {
+    const allKeys = []
+      .concat((r.機器表示名||'').split(';'))
+      .concat((r.型式||'').split(';'))
+      .map(s => s.trim()).filter(Boolean);
+    let updated = false;
+    for (const k of allKeys) {
+      const hit = mp.find(m => m['カテゴリ'] === r.カテゴリ && String(m['マッチキー']) === String(k));
+      if (hit) { hit['行順'] = String(i + 1); updated = true; }
+    }
+    // 辞書未登録なら先頭キーで新規エントリを作成
+    if (!updated && allKeys[0]) {
+      mp.push({ カテゴリ: r.カテゴリ, マッチキー: allKeys[0], 表示名: '', 単位: r.単位,
+                記事欄: '', 除外フラグ: '', 除外上限m: '', 行順: String(i + 1), 出現回数: '' });
+    }
+  });
+}
+
+// 設備種別名称の並び順を変更 → window._S.order を更新
+// displayRows から現在の全設備種別名称の表示順を取得し、その順序を保ちつつ srcEq を移動する
+function reorderGroups(srcEq, tgtEq, before, displayRows) {
+  // 現在の表示順で全設備種別名称を収集
+  const seen = new Set();
+  const orderedEqs = [];
+  for (const r of (displayRows || [])) {
+    const eq = r.設備種別名称 || '';
+    if (eq && !seen.has(eq)) { seen.add(eq); orderedEqs.push(eq); }
+  }
+  // 既存 order にしかない設備種別名称も末尾に追加
+  for (const eq of (window._S.order || [])) {
+    if (eq && !seen.has(eq)) { seen.add(eq); orderedEqs.push(eq); }
+  }
+  if (!seen.has(srcEq)) orderedEqs.push(srcEq);
+  if (!seen.has(tgtEq)) orderedEqs.push(tgtEq);
+
+  const newOrder = orderedEqs.filter(v => v !== srcEq);
+  const tgtIdx = newOrder.indexOf(tgtEq);
+  if (tgtIdx < 0) return;
+  newOrder.splice(before ? tgtIdx : tgtIdx + 1, 0, srcEq);
+  window._S.order = newOrder;
 }
 
 // 除外/含めるをmappingにトグル登録。操作したマッチキーを返す (mergedRaw絞り込み用)。
@@ -1839,7 +2102,7 @@ function renderSummaryBody(merged, subKey) {
         groupCls = ' row-group';
         groupAttrs = ` data-group="${esc(g.display)}" data-group-cat="${esc(g.cat)}"`;
       }
-      html += `<tr class="${cls}${warn}${excCls}${groupCls}"${sep} draggable="true" data-sig="${sig}" data-cat="${esc(r.カテゴリ)}" data-keys="${keysAttr}" data-item="${esc(r.項目)}" data-unit="${esc(r.単位)}"${groupAttrs}>
+      html += `<tr class="${cls}${warn}${excCls}${groupCls}"${sep} draggable="true" data-sig="${sig}" data-cat="${esc(r.カテゴリ)}" data-eq="${esc(r.設備種別名称||'')}" data-keys="${keysAttr}" data-item="${esc(r.項目)}" data-unit="${esc(r.単位)}"${groupAttrs}>
         <td><span class="pill">${esc(eq)||'-'}</span></td>
         <td>${gBadge}${esc(r.項目)}</td>
         <td>${esc(r.単位)}</td>
@@ -1873,12 +2136,15 @@ function renderCategoryView(merged, category) {
   const el = $('#tab-category');
   if (!el) return;
   if (!merged || !merged.length) { el.innerHTML = '<p style="color:var(--muted)">(出力なし)</p>'; return; }
+  // D&D 並び替え用に行配列を保存
+  if (window._S) window._S.lastCategoryRows = merged;
+
   const { map: catMap, order: catOrder } = buildCategoryIndex(category);
   const catOf = r => catMap.get(r.設備種別名称||'') || '未分類';
   const rankOf = c => { const i = catOrder.indexOf(c); return i<0 ? catOrder.length : i; };
 
   const kinds = [['新設','new'],['撤去','rem']];
-  let html = `<p style="color:var(--muted);font-size:12px">辞書 <code>category</code> シート (設備種別名称→カテゴリ) でグルーピングしたコピー専用ビュー。分類は <code>↓ mapping_dict.xlsx</code> の category シートで編集。</p>`;
+  let html = `<p style="color:var(--muted);font-size:12px">辞書 <code>category</code> シート (設備種別名称→カテゴリ) でグルーピングしたコピー専用ビュー。分類は <code>↓ mapping_dict.xlsx</code> の category シートで編集。<br>行をドラッグ→行間にドロップ で並び替え・辞書に反映。</p>`;
 
   for (const [kind, cls] of kinds) {
     const rows = merged.filter(r => r.工種===kind && !r.除外);
@@ -1897,7 +2163,15 @@ function renderCategoryView(merged, category) {
     for (const c of cats) {
       let first = true;
       for (const r of byCat.get(c)) {
-        html += `<tr class="${cls}"${first?' style="border-top:2px solid var(--border)"':''}>
+        const sig = esc(rowSig(r));
+        const keys = []
+          .concat((r.機器表示名||'').split(';'))
+          .concat((r.型式||'').split(';'))
+          .map(s => s.trim()).filter(Boolean);
+        const keysAttr = esc(keys.join('|||'));
+        html += `<tr class="${cls}" draggable="true"${first?' style="border-top:2px solid var(--border)"':''}
+          data-sig="${sig}" data-cat="${esc(r.カテゴリ)}" data-eq="${esc(r.設備種別名称||'')}"
+          data-keys="${keysAttr}" data-item="${esc(r.項目)}" data-unit="${esc(r.単位)}">
           <td>${first?`<span class="pill">${esc(c)}</span>`:''}</td>
           <td>${esc(r.項目)}</td>
           <td>${esc(r.単位)}</td>
@@ -1911,6 +2185,44 @@ function renderCategoryView(merged, category) {
   }
   el.innerHTML = html;
 
+  // ----- カテゴリ別タブ D&D (並び替えのみ) -----
+  el.querySelectorAll('tr[draggable="true"]').forEach(tr => {
+    tr.addEventListener('dragstart', e => {
+      tr.classList.add('dragsrc');
+      const payload = { sig: tr.dataset.sig, cat: tr.dataset.cat,
+                        keys: (tr.dataset.keys||'').split('|||').filter(Boolean),
+                        item: tr.dataset.item, unit: tr.dataset.unit };
+      try { e.dataTransfer.setData('application/json', JSON.stringify(payload)); }
+      catch(_) { e.dataTransfer.setData('text/plain', JSON.stringify(payload)); }
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    tr.addEventListener('dragend', () => tr.classList.remove('dragsrc'));
+    tr.addEventListener('dragover', e => {
+      if (!e.dataTransfer.types.includes('application/json') && !e.dataTransfer.types.includes('text/plain')) return;
+      e.preventDefault();
+      const rect = tr.getBoundingClientRect();
+      const ratio = (e.clientY - rect.top) / rect.height;
+      tr.classList.remove('drop-above', 'drop-below');
+      if (ratio < 0.5) { tr.classList.add('drop-above'); tr.dataset.dropMode = 'before'; }
+      else             { tr.classList.add('drop-below'); tr.dataset.dropMode = 'after'; }
+      e.dataTransfer.dropEffect = 'move';
+    });
+    tr.addEventListener('dragleave', () => tr.classList.remove('drop-above', 'drop-below'));
+    tr.addEventListener('drop', e => {
+      e.preventDefault();
+      const mode = tr.dataset.dropMode || 'before';
+      tr.classList.remove('drop-above', 'drop-below');
+      let raw = '';
+      try { raw = e.dataTransfer.getData('application/json'); } catch(_){}
+      if (!raw) try { raw = e.dataTransfer.getData('text/plain'); } catch(_){}
+      if (!raw) return;
+      let p; try { p = JSON.parse(raw); } catch(_) { return; }
+      if (p.sig === tr.dataset.sig) return;
+      applyReorder(p.sig, tr.dataset.sig, mode === 'before', window._S.lastCategoryRows);
+      log('ok', `カテゴリ別並び替え: 「${p.item}」→「${tr.dataset.item}」の${mode==='before'?'上':'下'}に移動`);
+    });
+  });
+
   el.querySelectorAll('button[data-catcopy]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const kind = btn.dataset.catcopy;
@@ -1922,8 +2234,12 @@ function renderCategoryView(merged, category) {
         byCat.get(c).push(r);
       }
       const cats = [...byCat.keys()].sort((a,b) => rankOf(a) - rankOf(b));
+      const tsvBlank = document.getElementById('tsvBlank')?.checked;
       const lines = ['カテゴリ\t項目\t工種\t単位\t合計\t記事欄'];
+      let firstCat = true;
       for (const c of cats) {
+        if (tsvBlank && !firstCat) lines.push('');
+        firstCat = false;
         let first = true;
         for (const r of byCat.get(c)) {
           lines.push([first?c:'', r.項目, r.工種, r.単位, r.合計, r.記事欄].join('\t'));
